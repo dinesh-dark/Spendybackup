@@ -1,101 +1,465 @@
-// Reads a photo (or PDF) of a grocery bill with Claude via Netlify AI Gateway and returns the line items as JSON.
-// Nothing is saved here; the app shows the result for the user to check before adding it to their spending.
-const UNITS = ["kg", "g", "L", "ml", "pcs"]
-const CATS = ["Vegetables", "Fruits", "Grains", "Dairy", "Grocery", "Meat & fish", "Household"]
-const TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"]
+import { createWorker } from "tesseract.js"
 
-const TOOL = {
-  name: "record_bill",
-  description: "Record every purchased line item read from the grocery bill.",
-  input_schema: {
-    type: "object",
-    properties: {
-      store: { type: "string", description: "Shop name printed on the bill, or empty string if not visible" },
-      date: { type: "string", description: "Bill date as YYYY-MM-DD, or empty string if not visible" },
-      total: { type: "number", description: "Final amount payable printed on the bill (after discounts and taxes), or 0 if not visible" },
-      payment: { type: "string", enum: ["Cash", "UPI", "Card", ""], description: "Payment mode if printed, else empty string" },
-      items: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            name: { type: "string", description: "Short, readable product name in title case, e.g. 'Toor dal' not 'TOOR DAL LOOSE 1KG'" },
-            qty: { type: "number", description: "Quantity bought, expressed in `unit`" },
-            unit: { type: "string", enum: UNITS },
-            amount: { type: "number", description: "Final line amount paid for this item in rupees, after any item discount" },
-            category: { type: "string", enum: CATS },
-          },
-          required: ["name", "qty", "unit", "amount", "category"],
-        },
-      },
-    },
-    required: ["store", "date", "total", "payment", "items"],
-  },
+const UNITS = ["kg", "g", "L", "ml", "pcs"] as const
+const CATS = [
+  "Vegetables",
+  "Fruits",
+  "Grains",
+  "Dairy",
+  "Grocery",
+  "Meat & fish",
+  "Household",
+] as const
+
+type Unit = typeof UNITS[number]
+type Category = typeof CATS[number]
+
+export interface BillItem {
+  name: string
+  qty: number
+  unit: Unit
+  amount: number
+  cat: Category
 }
 
-export default async (req: Request) => {
-  if (req.method !== "POST") return Response.json({ error: "Use POST" }, { status: 405 })
-  let body: any
-  try { body = await req.json() } catch { return Response.json({ error: "Invalid request" }, { status: 400 }) }
-  const { data, type, products } = body || {}
-  if (typeof data !== "string" || !data || !TYPES.includes(type)) return Response.json({ error: "Upload a JPG, PNG, WEBP or PDF of the bill." }, { status: 400 })
-  if (data.length > 5_500_000) return Response.json({ error: "That file is too large. Try a smaller photo." }, { status: 413 })
-  const known = Array.isArray(products) ? products.filter((p: unknown) => typeof p === "string").slice(0, 200).map((p: string) => p.slice(0, 40)) : []
+export interface ParsedBill {
+  store: string
+  date: string
+  total: number
+  pay: "" | "Cash" | "UPI" | "Card"
+  items: BillItem[]
+}
 
-  const file = type === "application/pdf"
-    ? { type: "document", source: { type: "base64", media_type: type, data } }
-    : { type: "image", source: { type: "base64", media_type: type, data } }
-  const prompt = `This is a grocery shop bill from India (amounts in rupees). Read every purchased line item and call record_bill.
-Rules:
-- Skip subtotal, tax summary, savings, round-off, and payment lines; only list products bought.
-- qty and unit: if the bill shows weight or volume (e.g. 0.750 kg, 500 g, 1 L), use it. If the product name includes a pack size and the bill qty is a count (e.g. "SUGAR 1KG" x 2), give the total weight/volume (2 kg). Otherwise use the count with unit "pcs". Prefer kg or L over g or ml once the amount is 1000 or more.
-- amount is the final amount charged for that line.
-- If an item clearly matches one of these known products, use that exact name: ${known.join(", ") || "(none)"}.
-- If something is unreadable, give your best guess; the user checks everything before saving.`
+/* -----------------------------
+   COMMON GROCERY KEYWORDS
+----------------------------- */
 
-  const key = process.env.ANTHROPIC_API_KEY
-  const base = (process.env.ANTHROPIC_BASE_URL || "https://api.anthropic.com").replace(/\/$/, "")
-  if (!key) return Response.json({ error: "Bill reading is not available yet on this site." }, { status: 503 })
+const PRODUCT_CATEGORIES: Record<string, Category> = {
+  tomato: "Vegetables",
+  tomatoes: "Vegetables",
+  potato: "Vegetables",
+  onion: "Vegetables",
+  carrot: "Vegetables",
+  beans: "Vegetables",
+  brinjal: "Vegetables",
+  cabbage: "Vegetables",
+  cauliflower: "Vegetables",
+  keerai: "Vegetables",
+  spinach: "Vegetables",
 
-  try {
-    const r = await fetch(`${base}/v1/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 4096,
-        tools: [TOOL],
-        tool_choice: { type: "tool", name: "record_bill" },
-        messages: [{ role: "user", content: [file, { type: "text", text: prompt }] }],
-      }),
-    })
-    if (!r.ok) {
-      console.error("AI Gateway error", r.status, (await r.text()).slice(0, 500))
-      return Response.json({ error: r.status === 429 ? "Too many bills at once. Wait a minute and try again." : "Could not read the bill. Try again." }, { status: 502 })
+  apple: "Fruits",
+  banana: "Fruits",
+  orange: "Fruits",
+  grapes: "Fruits",
+  mango: "Fruits",
+  papaya: "Fruits",
+  watermelon: "Fruits",
+
+  rice: "Grains",
+  wheat: "Grains",
+  atta: "Grains",
+  flour: "Grains",
+  ragi: "Grains",
+  oats: "Grains",
+  dal: "Grocery",
+  dhal: "Grocery",
+  toor: "Grocery",
+  moong: "Grocery",
+  urad: "Grocery",
+  sugar: "Grocery",
+  salt: "Grocery",
+  oil: "Grocery",
+  tea: "Grocery",
+  coffee: "Grocery",
+  masala: "Grocery",
+  biscuit: "Grocery",
+
+  milk: "Dairy",
+  curd: "Dairy",
+  yogurt: "Dairy",
+  butter: "Dairy",
+  paneer: "Dairy",
+  cheese: "Dairy",
+
+  chicken: "Meat & fish",
+  mutton: "Meat & fish",
+  fish: "Meat & fish",
+  egg: "Meat & fish",
+  eggs: "Meat & fish",
+
+  soap: "Household",
+  detergent: "Household",
+  shampoo: "Household",
+  tissue: "Household",
+  cleaner: "Household",
+}
+
+/* -----------------------------
+   NUMBER PARSER
+----------------------------- */
+
+function cleanNumber(value: string): number {
+  const cleaned = value
+    .replace(/₹/g, "")
+    .replace(/rs\.?/gi, "")
+    .replace(/,/g, "")
+    .trim()
+
+  const match = cleaned.match(/\d+(?:\.\d+)?/)
+
+  return match ? Number(match[0]) : 0
+}
+
+/* -----------------------------
+   CATEGORY DETECTION
+----------------------------- */
+
+function detectCategory(name: string): Category {
+  const lower = name.toLowerCase()
+
+  for (const keyword of Object.keys(PRODUCT_CATEGORIES)) {
+    if (lower.includes(keyword)) {
+      return PRODUCT_CATEGORIES[keyword]
     }
-    const out = await r.json()
-    const use = (out.content || []).find((c: any) => c.type === "tool_use")
-    if (!use) return Response.json({ error: "Could not read the bill. Try a clearer photo." }, { status: 422 })
-    const b = use.input || {}
-    const num = (x: unknown) => (typeof x === "number" && isFinite(x) && x >= 0 ? Math.round(x * 1000) / 1000 : 0)
-    const items = (Array.isArray(b.items) ? b.items : []).map((i: any) => ({
-      name: String(i.name || "").trim().slice(0, 40),
-      qty: num(i.qty) || 1,
-      unit: UNITS.includes(i.unit) ? i.unit : "pcs",
-      amount: num(i.amount),
-      cat: CATS.includes(i.category) ? i.category : "Grocery",
-    })).filter((i: any) => i.name)
-    return Response.json({
-      store: String(b.store || "").trim().slice(0, 40),
-      date: /^\d{4}-\d{2}-\d{2}$/.test(b.date || "") ? b.date : "",
-      total: num(b.total),
-      pay: ["Cash", "UPI", "Card"].includes(b.payment) ? b.payment : "",
-      items,
+  }
+
+  return "Grocery"
+}
+
+/* -----------------------------
+   PRODUCT NAME CLEANING
+----------------------------- */
+
+function cleanProductName(value: string): string {
+  let name = value
+
+  // Remove leading item numbers
+  name = name.replace(/^\s*\d+[\.\)\-:]?\s*/, "")
+
+  // Remove quantity patterns
+  name = name.replace(
+    /\b\d+(?:\.\d+)?\s*(kg|kgs|g|gm|gms|l|ltr|litre|litres|ml|pcs|pc)\b/gi,
+    ""
+  )
+
+  // Remove price at end
+  name = name.replace(/\s+\d+(?:\.\d+)?\s*$/g, "")
+
+  // Remove excessive characters
+  name = name.replace(/[|*_]+/g, " ")
+
+  name = name.replace(/\s+/g, " ").trim()
+
+  // Title Case
+  return name
+    .toLowerCase()
+    .split(" ")
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
+    .slice(0, 40)
+}
+
+/* -----------------------------
+   UNIT DETECTION
+----------------------------- */
+
+function detectUnit(text: string): Unit {
+  const value = text.toLowerCase()
+
+  if (/\bkg\b|\bkgs\b/.test(value)) return "kg"
+  if (/\bg\b|\bgm\b|\bgms\b/.test(value)) return "g"
+  if (/\bl\b|\bltr\b|\blitre\b|\blitres\b/.test(value)) return "L"
+  if (/\bml\b/.test(value)) return "ml"
+
+  return "pcs"
+}
+
+/* -----------------------------
+   QUANTITY DETECTION
+----------------------------- */
+
+function detectQuantity(text: string): number {
+  const value = text.toLowerCase()
+
+  const weight = value.match(
+    /(\d+(?:\.\d+)?)\s*(kg|kgs|g|gm|gms|l|ltr|litre|litres|ml)\b/i
+  )
+
+  if (weight) {
+    let qty = Number(weight[1])
+    const unit = weight[2].toLowerCase()
+
+    if (["g", "gm", "gms"].includes(unit)) {
+      qty = qty / 1000
+    }
+
+    if (["ml"].includes(unit)) {
+      qty = qty / 1000
+    }
+
+    return qty
+  }
+
+  // x2 / *2 / qty 2
+  const count = value.match(
+    /(?:x|\*|qty[:\s]*)\s*(\d+(?:\.\d+)?)/i
+  )
+
+  if (count) return Number(count[1])
+
+  return 1
+}
+
+/* -----------------------------
+   AMOUNT DETECTION
+----------------------------- */
+
+function detectAmount(text: string): number {
+  const numbers = text
+    .replace(/₹/g, " ")
+    .replace(/rs\.?/gi, " ")
+    .match(/\d+(?:\.\d+)?/g)
+
+  if (!numbers?.length) return 0
+
+  /*
+   * Usually the final number on a product
+   * line is the selling amount.
+   */
+  return Number(numbers[numbers.length - 1])
+}
+
+/* -----------------------------
+   DATE DETECTION
+----------------------------- */
+
+function detectDate(text: string): string {
+  let match = text.match(
+    /\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})\b/
+  )
+
+  if (!match) return ""
+
+  let day = Number(match[1])
+  let month = Number(match[2])
+  let year = Number(match[3])
+
+  if (year < 100) year += 2000
+
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+}
+
+/* -----------------------------
+   STORE DETECTION
+----------------------------- */
+
+function detectStore(lines: string[]): string {
+  const ignore = [
+    "invoice",
+    "bill",
+    "receipt",
+    "tax invoice",
+    "gst",
+    "date",
+    "phone",
+    "mobile",
+    "address",
+    "cashier",
+  ]
+
+  for (const line of lines.slice(0, 8)) {
+    const value = line.trim()
+
+    if (!value) continue
+
+    if (value.length < 3 || value.length > 50) continue
+
+    if (/^\d+$/.test(value)) continue
+
+    const lower = value.toLowerCase()
+
+    if (ignore.some(word => lower.includes(word))) continue
+
+    return cleanProductName(value)
+  }
+
+  return ""
+}
+
+/* -----------------------------
+   PAYMENT DETECTION
+----------------------------- */
+
+function detectPayment(text: string): ParsedBill["pay"] {
+  const value = text.toLowerCase()
+
+  if (/\bcash\b/.test(value)) return "Cash"
+
+  if (
+    /\bupi\b/.test(value) ||
+    /phonepe/.test(value) ||
+    /gpay/.test(value) ||
+    /google pay/.test(value) ||
+    /paytm/.test(value)
+  ) {
+    return "UPI"
+  }
+
+  if (
+    /\bcard\b/.test(value) ||
+    /debit card/.test(value) ||
+    /credit card/.test(value)
+  ) {
+    return "Card"
+  }
+
+  return ""
+}
+
+/* -----------------------------
+   TOTAL DETECTION
+----------------------------- */
+
+function detectTotal(text: string): number {
+  const lines = text.split("\n")
+
+  const totalKeywords = [
+    "grand total",
+    "net total",
+    "amount payable",
+    "amount paid",
+    "total",
+    "net amount",
+  ]
+
+  for (const line of lines) {
+    const lower = line.toLowerCase()
+
+    if (totalKeywords.some(k => lower.includes(k))) {
+      const amount = detectAmount(line)
+
+      if (amount > 0) return amount
+    }
+  }
+
+  return 0
+}
+
+/* -----------------------------
+   LINE ITEM DETECTION
+----------------------------- */
+
+function looksLikeProductLine(line: string): boolean {
+  const value = line.trim()
+
+  if (!value) return false
+
+  // Ignore obvious summary lines
+  if (
+    /subtotal|grand total|total|tax|gst|cgst|sgst|discount|saving|round off|change|cash|upi|card|balance|invoice|receipt/i.test(
+      value
+    )
+  ) {
+    return false
+  }
+
+  // Must contain at least one number
+  if (!/\d/.test(value)) return false
+
+  // Need some letters
+  if (!/[a-zA-Z]/.test(value)) return false
+
+  return true
+}
+
+/* -----------------------------
+   MAIN LOCAL PARSER
+----------------------------- */
+
+export function parseBillText(
+  text: string,
+  knownProducts: string[] = []
+): ParsedBill {
+  const lines = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+
+  const fullText = lines.join("\n")
+
+  const items: BillItem[] = []
+
+  for (const line of lines) {
+    if (!looksLikeProductLine(line)) continue
+
+    const unit = detectUnit(line)
+    const qty = detectQuantity(line)
+    const amount = detectAmount(line)
+
+    if (!amount) continue
+
+    let name = cleanProductName(line)
+
+    /*
+     * Try to match user's existing products.
+     */
+    const known = knownProducts.find(product => {
+      const p = product.toLowerCase()
+      const l = line.toLowerCase()
+
+      return l.includes(p)
     })
-  } catch (e) {
-    console.error(e)
-    return Response.json({ error: "Could not read the bill. Check your connection and try again." }, { status: 500 })
+
+    if (known) {
+      name = known
+    }
+
+    if (!name || name.length < 2) continue
+
+    items.push({
+      name,
+      qty,
+      unit,
+      amount,
+      cat: detectCategory(name),
+    })
+  }
+
+  return {
+    store: detectStore(lines),
+    date: detectDate(fullText),
+    total: detectTotal(fullText),
+    pay: detectPayment(fullText),
+    items,
   }
 }
 
-export const config = { path: "/api/scan-bill" }
+/* -----------------------------
+   OCR FUNCTION
+----------------------------- */
+
+export async function scanBillLocally(
+  file: File,
+  knownProducts: string[] = [],
+  onProgress?: (progress: number) => void
+): Promise<ParsedBill> {
+
+  const worker = await createWorker("eng", 1, {
+    logger: message => {
+      if (message.status === "recognizing text") {
+        onProgress?.(Math.round(message.progress * 100))
+      }
+    },
+  })
+
+  try {
+    const result = await worker.recognize(file)
+
+    const text = result.data.text
+
+    return parseBillText(text, knownProducts)
+  } finally {
+    await worker.terminate()
+  }
+}
