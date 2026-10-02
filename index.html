@@ -749,10 +749,11 @@ CRITICAL RULES TO AVOID ERRORS:
       return (r && r.data && r.data.text) || "";
     }
 
+    // Comprehensive rejection list for non-item lines
     const REJECT_PATTERNS = [
       /no[\s.:-]*\d+/i,
       /road|street|nagar|salai|lane|pallavaram|chennai|tamil\s*nadu|pincode|pin[\s.:-]*\d{6}/i,
-      /bill\s*no|inv\s*no|invoice|estimate|cash\s*bill|memo|counter/i.test,
+      /bill\s*no|inv\s*no|invoice|estimate|cash\s*bill|memo|counter/i,
       /phone|mobile|cell|ph[\s.:-]*\d+/i,
       /gstin|tin|fssai|cin/i,
       /paid\s*[:=]|returned|change|balance|round\s*off|sub\s*total/i,
@@ -778,7 +779,7 @@ CRITICAL RULES TO AVOID ERRORS:
 
       let store = "";
       for (const line of lines.slice(0, 5)) {
-        if (!REJECT_PATTERNS.some(re => (typeof re === 'function' ? re(line) : re.test(line))) && line.length >= 3 && !/^\d/.test(line)) {
+        if (!REJECT_PATTERNS.some(re => re.test(line)) && line.length >= 3 && !/^\d/.test(line)) {
           store = line;
           break;
         }
@@ -800,7 +801,7 @@ CRITICAL RULES TO AVOID ERRORS:
 
       const items = [];
       for (let line of lines) {
-        if (REJECT_PATTERNS.some(re => (typeof re === 'function' ? re(line) : re.test(line)))) continue;
+        if (REJECT_PATTERNS.some(re => re.test(line))) continue;
 
         const nums = [];
         const numRegex = /(?:\b|^)(\d+(?:\.\d+)?)(?:\b|$)/g;
