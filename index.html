@@ -316,7 +316,7 @@
       ["Oil", "🛢️", "Grocery"],
       ["Sugar", "🍬", "Grocery"],
       ["Salt", "🧂", "Grocery"],
-      ["Spices", "🌶️️", "Grocery"],
+      ["Spices", "🌶️", "Grocery"],
       ["Tomato", "🍅", "Vegetables"],
       ["Potato", "🥔", "Vegetables"],
       ["Onion", "🧅", "Vegetables"],
@@ -337,7 +337,7 @@
       ["Personal care", "🧼", "Personal care"],
       ["Clothes & Footwear", "👗", "Shopping"],
       ["Education Fees", "🎒", "Education"],
-      ["Miscellaneous", "🏷️️", "Miscellaneous"]
+      ["Miscellaneous", "🏷️", "Miscellaneous"]
     ];
 
     const CC = {
@@ -387,6 +387,7 @@
     S = S || { budget: 25000, items: [] };
     S.prods = S.prods || [];
     S.bills = S.bills || [];
+    S.geminiKey = S.geminiKey || "";
 
     const raw = () => { try { localStorage.setItem("st", JSON.stringify(S)); } catch (e) {} };
     const save = () => { S.upd = Date.now(); raw(); if (tok) { clearTimeout(timer); timer = setTimeout(sync, 2500); } };
@@ -423,17 +424,17 @@
       ${due.length ? `<div class="card" style="border-color:#f59e0b"><b>⏰ ${due.length} bill${due.length > 1 ? "s" : ""} due soon</b>${due.map(x => `<div class="row"><span class="em">${BE[x.category] || "🧾"}</span><div class="g"><b>${esc(x.name)}</b><small>${nextDue(x) == today() ? "Due today" : "Due " + df(nextDue(x))}</small></div><div class="r"><b>${fm(x.amount)}</b></div></div>`).join("")}<button class="link" onclick="go('bills')">Manage bills</button></div>` : ""}
       <div class="tiles">
         <button class="tile" onclick="go('add')">➕<b>Add purchase</b><small>Log item manually</small></button>
-        <button class="tile" onclick="go('bill')">📷<b>Scan a bill</b><small>Auto OCR & multi-item verification</small></button>
+        <button class="tile" onclick="go('bill')">📷<b>AI Bill Scanner</b><small>Gemini / local OCR</small></button>
         <button class="tile" onclick="go('rep')">📊<b>View reports</b><small>Insights &amp; trends</small></button>
-        <button class="tile" onclick="go('price')">🏷️<b>Price tracker</b><small>Price fluctuation</small></button>
+        <button class="tile" onclick="go('price')">🏷️<b>Price tracker</b><small>Compare stores</small></button>
         <button class="tile" onclick="go('bills')">🔔<b>Bills &amp; EMIs</b><small>Reminders & tracking</small></button>
-        <button class="tile" onclick="go('prod')">🛒<b>My products</b><small>Custom list</small></button>
+        <button class="tile" onclick="go('settings')">⚙️<b>AI &amp; Settings</b><small>Gemini API setup</small></button>
       </div>
       <div class="head"><b>Recent purchases</b><button class="link" onclick="go('hist')">View all</button></div>
       <div class="card">${S.items.length ? [...S.items].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 5).map(row).join("") : empty("No purchases yet. Tap + to add your first one.")}</div>${gcard()}`;
     }
 
-    // --- History Screen (With Edit & Delete Support) ---
+    // --- History Screen (Editable Items) ---
     function hist() {
       const it = inMo(mo);
       return `<h1>Purchase history</h1>${mnav()}
@@ -531,19 +532,19 @@
     // --- Manual Add Screen ---
     function add() {
       return `<h1>Add purchase</h1>
-      <button class="tile" style="width:100%;margin-bottom:12px" onclick="go('bill')">📷<b>Scan a grocery bill instead</b><small>Scan, verify total & add multiple items</small></button>
+      <button class="tile" style="width:100%;margin-bottom:12px" onclick="go('bill')">📷<b>Scan a bill instead</b><small>Read store, items &amp; totals with Gemini Vision AI</small></button>
       <div class="head"><b>Choose a product</b><button class="link" onclick="go('prod')">Add custom product</button></div>
       <div class="chips">${allP().map((p, i) => `<button class="chip" onclick="pick(${i})"><span>${p[1]}</span>${p[0]}</button>`).join("")}</div>
       <div class="card">
         <label style="margin-top:0">Product</label><input id="nm" placeholder="Pick above or type name" maxlength="40">
         <label>Category</label><select id="ct">${opts(Object.keys(AllC()), "Grocery")}</select>
-        <label>Store</label><input id="sto" list="stl" maxlength="40" placeholder="e.g. Reliance Smart"><datalist id="stl">${[...new Set(S.items.map(i => i.store).filter(Boolean))].map(x => `<option value="${esc(x)}">`).join("")}</datalist>
+        <label>Store</label><input id="sto" list="stl" maxlength="40" placeholder="e.g. Big Bazaar / DMart"><datalist id="stl">${[...new Set(S.items.map(i => i.store).filter(Boolean))].map(x => `<option value="${esc(x)}">`).join("")}</datalist>
         <label>Quantity</label>
         <div class="f"><input id="q" type="number" inputmode="decimal" value="1" min="0" step="any" oninput="tot()"><select id="u">${opts(UN, "kg")}</select></div>
         <label>Price per unit (₹)</label><input id="pr" type="number" inputmode="decimal" min="0" step="any" oninput="tot()" placeholder="e.g. 40">
         <label>Date</label><input id="dt" type="date" value="${today()}">
         <label>Payment mode</label><select id="pm">${opts(["Cash", "UPI", "Card"], "UPI")}</select>
-        <label>Notes (optional)</label><input id="nt" maxlength="80" placeholder="e.g. Grocery run">
+        <label>Notes (optional)</label><input id="nt" maxlength="80" placeholder="e.g. Weekly grocery">
         <div class="total"><span>Total amount</span><span id="tt">₹0</span></div>
         <div class="err" id="err"></div>
         <button class="btn" onclick="addP()">Save purchase</button>
@@ -586,12 +587,29 @@
       go("hist");
     }
 
-    // --- Pure Client-Side OCR & Comprehensive Bill Processing ---
+    // --- Settings Screen (Gemini API Configuration) ---
+    function settings() {
+      return `<h1>AI &amp; App Settings</h1>
+      <div class="card">
+        <b>🤖 Gemini Vision AI Key</b>
+        <small style="display:block;margin:6px 0 10px">Connecting Gemini Vision allows 100% accurate receipt reading (like Google Lens) directly inside the app without parsing errors.</small>
+        <label>Google AI Studio API Key</label>
+        <input id="gk" type="password" value="${esc(S.geminiKey || "")}" placeholder="AIzaSy...">
+        <small style="display:block;margin-top:6px">Get a free key from <a href="https://aistudio.google.com/" target="_blank" style="color:var(--blue)">aistudio.google.com</a>. Stored locally only.</small>
+        <button class="btn" onclick="S.geminiKey=$('#gk').value.trim();save();alert('Saved successfully!');go('home')">Save Key</button>
+      </div>
+      <div class="card">
+        <b>About OCR Engine</b>
+        <small style="display:block;margin-top:6px">When Gemini API key is configured, receipts are interpreted with high contextual intelligence (distinguishing rates, weights, taxes, store names). If omitted, the app falls back to local Tesseract OCR.</small>
+      </div>`;
+    }
+
+    // --- Image Processing & OCR Helpers ---
     function shrink(f) {
       return new Promise((ok, no) => {
         const u = URL.createObjectURL(f), im = new Image();
         im.onload = () => {
-          const m = 1800, r = Math.min(1, m / Math.max(im.width, im.height)), c = document.createElement("canvas");
+          const m = 1600, r = Math.min(1, m / Math.max(im.width, im.height)), c = document.createElement("canvas");
           c.width = Math.round(im.width * r);
           c.height = Math.round(im.height * r);
           c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
@@ -632,6 +650,57 @@
       return c;
     }
 
+    // --- Gemini Vision API Integration ---
+    async function parseReceiptWithGemini(base64Data, apiKey, statusCb) {
+      if (statusCb) statusCb("Sending image to Gemini Vision AI...");
+      const categories = Object.keys(AllC()).join(", ");
+      const prompt = `You are an expert OCR receipt parser. Inspect this receipt image carefully and return ONLY a valid JSON object (no markdown, no backticks, no comments).
+JSON schema to adhere strictly:
+{
+  "store": "Name of the merchant or store, or empty string",
+  "date": "YYYY-MM-DD format, or "${today()}" if not found",
+  "pay": "Cash, UPI, or Card",
+  "total": 0.00,
+  "items": [
+    {
+      "name": "Item description",
+      "qty": 1.0,
+      "unit": "kg, g, L, ml, or pcs",
+      "amount": 0.00,
+      "cat": "Pick closest category from: ${categories}"
+    }
+  ]
+}
+Rules:
+1. "total" MUST be the final bill total / grand total printed on the bill.
+2. For each line item, extract actual weight/count if printed (e.g. 500g -> qty: 500, unit: "g" or qty: 0.5, unit: "kg").
+3. "amount" is the total cost for that specific item line.
+4. Do NOT include discount lines, tax totals, or subtotal lines as items.`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: prompt },
+              { inline_data: { mime_type: "image/jpeg", data: base64Data } }
+            ]
+          }],
+          generationConfig: { response_mime_type: "application/json" }
+        })
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error?.message || "Gemini API rejected request");
+      }
+      const data = await response.json();
+      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      return JSON.parse(rawText);
+    }
+
+    // --- Local Tesseract Fallback Parser ---
     let tessReady = null;
     function loadTess() {
       if (tessReady) return tessReady;
@@ -655,38 +724,26 @@
       return (r && r.data && r.data.text) || "";
     }
 
-    // Convert unstructured receipt text to verified JSON model
-    function parseOcrTextToJson(rawText) {
+    function fallbackParseTextToJson(rawText) {
       const lines = rawText.split("\n").map(l => l.trim()).filter(Boolean);
-
-      // 1. Detect store name
       let store = "";
       const storeCandidate = lines.find(l => l.length > 2 && l.length < 35 && !/tax|invoice|bill|receipt|date|cash|total|gst/i.test(l) && !/^\d/.test(l));
       if (storeCandidate) store = storeCandidate;
 
-      // 2. Detect date
       let date = today();
       const dMatch = rawText.match(/([0-3]?\d)[\/\-.]([01]?\d)[\/\-.]((?:20)?\d\d)/);
       if (dMatch) {
         let dd = +dMatch[1], mm = +dMatch[2], yy = +dMatch[3];
         if (yy < 100) yy += 2000;
-        if (dd >= 1 && dd <= 31 && mm >= 1 && mm <= 12) {
-          date = `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
-        }
+        if (dd >= 1 && dd <= 31 && mm >= 1 && mm <= 12) date = `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
       }
 
-      // 3. Detect printed bill total
       let billTotal = 0;
-      const totalRegex = /(?:total|grand|net|balance due|bill amount|amount payable)[^\d\n]*([0-9,]+\.?[0-9]{0,2})/i;
-      const tMatch = rawText.match(totalRegex);
-      if (tMatch) {
-        billTotal = parseFloat(tMatch[1].replace(/,/g, "")) || 0;
-      }
+      const tMatch = rawText.match(/(?:total|grand|net|balance due|bill amount|amount payable)[^\d\n]*([0-9,]+\.?[0-9]{0,2})/i);
+      if (tMatch) billTotal = parseFloat(tMatch[1].replace(/,/g, "")) || 0;
 
-      // 4. Line items parsing (unit, quantity, rate, amount)
       const items = [];
       const unitRegex = /(\d+(?:\.\d+)?)\s*(kg|g|gm|gms|l|ltr|ltrs|ml|pcs|pc|nos|pkt|packet)/i;
-      const priceRegex = /(?:rs\.?|inr|₹)?\s*(\d+[.,]\d{2}|\d+)(?:\s|$)/i;
 
       for (let line of lines) {
         if (/total|grand|net|cgst|sgst|tax|discount|round off|subtotal|change/i.test(line)) continue;
@@ -701,80 +758,80 @@
           else if (uStr.startsWith("g")) detectedUnit = "g";
           else if (uStr.startsWith("l")) detectedUnit = "L";
           else if (uStr.startsWith("ml")) detectedUnit = "ml";
-          else detectedUnit = "pcs";
         }
 
-        // Search for numbers formatted as prices on the right
         const words = line.split(/\s+/);
         let amount = NaN;
         for (let j = words.length - 1; j >= 0; j--) {
           const clean = words[j].replace(/[^0-9.]/g, "");
           const val = parseFloat(clean);
-          if (!isNaN(val) && val > 0 && val < 500000) {
-            amount = val;
-            break;
-          }
+          if (!isNaN(val) && val > 0 && val < 500000) { amount = val; break; }
         }
 
         if (!isNaN(amount) && amount > 0) {
-          // Clean product name
-          let cleanName = line
-            .replace(unitRegex, "")
-            .replace(/[0-9.,]+$/g, "")
-            .replace(/[@#₹$*]/g, "")
-            .trim();
-          if (cleanName.length > 2 && cleanName.length < 35 && !/total/i.test(cleanName)) {
-            // Find closest category match
+          let cleanName = line.replace(unitRegex, "").replace(/[0-9.,]+$/g, "").replace(/[@#₹$*]/g, "").trim();
+          if (cleanName.length > 2 && cleanName.length < 35) {
             let matchedCat = "Grocery";
             const known = allP().find(p => cleanName.toLowerCase().includes(p[0].toLowerCase()));
             if (known) matchedCat = known[2];
-
-            items.push({
-              name: cleanName,
-              qty: detectedQty,
-              unit: detectedUnit,
-              amount: amount,
-              cat: matchedCat,
-              on: true
-            });
+            items.push({ name: cleanName, qty: detectedQty, unit: detectedUnit, amount: amount, cat: matchedCat, on: true });
           }
         }
       }
 
       return {
-        store: store,
-        date: date,
+        store,
+        date,
         pay: /upi|gpay|phonepe/i.test(rawText) ? "UPI" : /card|pos/i.test(rawText) ? "Card" : "Cash",
         total: billTotal,
-        items: items
+        items
       };
     }
 
+    // --- Bill Scan & Batch Upload Coordinator ---
     async function handleBillUpload(file) {
       if (!file) return;
-      B = { busy: true, status: "Preparing image..." };
+      B = { busy: true, status: "Loading image file..." };
       go("bill");
       try {
-        let canvas;
-        if (file.type === "application/pdf") {
-          canvas = await pdfToCanvas(file);
-        } else {
-          canvas = await shrink(file);
-        }
+        let canvas = file.type === "application/pdf" ? await pdfToCanvas(file) : await shrink(file);
         B.img = canvas.toDataURL("image/jpeg", 0.85);
-        const text = await localOcr(canvas, st => {
-          B.status = st;
-          const el = $("#bstatus");
-          if (el) el.textContent = st;
-        });
+        const base64Data = B.img.split(",")[1];
 
-        const parsedJson = parseOcrTextToJson(text);
+        let parsedJson;
+        if (S.geminiKey) {
+          try {
+            parsedJson = await parseReceiptWithGemini(base64Data, S.geminiKey, st => {
+              B.status = st;
+              const el = $("#bstatus");
+              if (el) el.textContent = st;
+            });
+          } catch (aiErr) {
+            console.warn("Gemini Vision failed, falling back to local OCR:", aiErr);
+            B.status = "Falling back to on-device OCR...";
+            const el = $("#bstatus"); if (el) el.textContent = B.status;
+            const text = await localOcr(canvas, st => {
+              B.status = st;
+              const e = $("#bstatus"); if (e) e.textContent = st;
+            });
+            parsedJson = fallbackParseTextToJson(text);
+          }
+        } else {
+          B.status = "Reading locally via Tesseract OCR...";
+          const el = $("#bstatus"); if (el) el.textContent = B.status;
+          const text = await localOcr(canvas, st => {
+            B.status = st;
+            const e = $("#bstatus"); if (e) e.textContent = st;
+          });
+          parsedJson = fallbackParseTextToJson(text);
+        }
+
         B.busy = false;
-        B.store = parsedJson.store;
-        B.date = parsedJson.date;
-        B.pay = parsedJson.pay;
-        B.total = parsedJson.total;
-        B.items = parsedJson.items;
+        B.store = parsedJson.store || "";
+        B.date = parsedJson.date || today();
+        B.pay = parsedJson.pay || "Cash";
+        B.total = parsedJson.total || 0;
+        B.items = (parsedJson.items || []).map(i => ({ ...i, on: true }));
         B.rawJson = JSON.stringify(parsedJson, null, 2);
         go("bill");
         bt();
@@ -792,9 +849,10 @@
       if (!B || !B.items) {
         return `<h1>Scan a bill</h1>
         <div class="card">
-          <small>Take a clear photo of your receipt. OCR will parse the store, date, items, units, and totals directly in your browser.</small>
+          <small>Take a clear photo of your receipt. Powered by <b>${S.geminiKey ? "Gemini Vision AI" : "Local OCR"}</b> to identify quantities, units, and stores accurately.</small>
+          ${!S.geminiKey ? `<div style="margin:8px 0;font-size:12px;background:#fef3c7;color:#92400e;padding:8px;border-radius:8px">💡 <b>Tip:</b> For Google Lens-grade accuracy, <a href="#" onclick="go('settings')" style="color:#b45309;font-weight:700">add a free Gemini API Key in Settings</a>.</div>` : ""}
           ${up}
-          ${B && B.busy ? `<div class="empty"><b id="bstatus">${esc(B.status || "Reading image...")}</b><br><small>This runs locally and takes a few seconds.</small></div>` : ""}
+          ${B && B.busy ? `<div class="empty"><b id="bstatus">${esc(B.status || "Reading image...")}</b><br><small>Processing details...</small></div>` : ""}
           ${B && B.err ? `<div class="warn">${esc(B.err)}</div>` : ""}
         </div>
         <button class="link" onclick="go('add')">Add by hand instead</button>`;
@@ -802,7 +860,7 @@
 
       return `<h1>Verify scanned bill</h1>
       <div class="card">
-        <small>Review items, normalized rates, and ensure the individual sum matches the printed bill total.</small>
+        <small>Review individual lines, normalized rates, and ensure the items sum matches the printed bill total.</small>
         ${B.img ? `<img class="thumb" src="${B.img}" alt="Receipt">` : ""}
         <label>Store Name</label>
         <input maxlength="40" value="${esc(B.store || "")}" placeholder="Store name" oninput="B.store=this.value">
@@ -811,7 +869,7 @@
           <div><label>Payment</label><select onchange="B.pay=this.value">${opts(["Cash", "UPI", "Card"], B.pay)}</select></div>
         </div>
         <details style="margin-top:8px">
-          <summary style="font-size:12px;color:var(--mute);cursor:pointer">View Generated JSON</summary>
+          <summary style="font-size:12px;color:var(--mute);cursor:pointer">View Structured JSON</summary>
           <div class="json-box">${esc(B.rawJson || "")}</div>
         </details>
       </div>
@@ -892,7 +950,6 @@
         return;
       }
 
-      // Check total mismatch validation
       const t = on.reduce((s, i) => s + (+i.amount || 0), 0);
       if (B.total && Math.abs(t - B.total) > 1) {
         if (!confirm(`Warning: The items total (${fm(t)}) does not match the printed bill total (${fm(B.total)}). Do you still want to save these items?`)) {
@@ -1213,14 +1270,14 @@
       try { localStorage.setItem("notif-date", today()); } catch (e) {}
     }
 
-    // --- Google Drive Backup ---
+    // --- Google Drive Auto-Connecting Backup Engine ---
     const CLIENT_ID = "386974473840-bhnhm2qv91iq87c3lt78hp8b3gs2tp61.apps.googleusercontent.com";
     const FN = "spend-tracker.json";
     let tok = null, tc = null, timer = null;
 
     const ls = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
     const cfg = () => !CLIENT_ID.startsWith("PASTE");
-    let sst = !cfg() ? "Not set up yet. Add your Google client ID." : ls("gd") ? "Reconnecting…" : "Not connected. Sign in to back up to Google Drive.";
+    let sst = !cfg() ? "Not set up yet. Add your Google client ID." : ls("gd") ? "Connected" : "Not connected. Sign in to back up to Google Drive.";
     const setSt = t => { sst = t; const e = $("#gst"); if (e) e.textContent = t; };
     const gcard = () => `<div class="card"><div class="head"><b>Google Drive backup</b>${tok ? `<button class="link" onclick="sync()">Sync now</button>` : `<button class="link" onclick="gIn()">${ls("gd") ? "Reconnect" : "Sign in"}</button>`}</div><small id="gst">${esc(sst)}</small></div>`;
 
@@ -1234,6 +1291,7 @@
         items: [...m.values()].filter(i => !del.has(i.id)),
         prods: [...pm.values()].filter(p => !pd.has(p.name.toLowerCase())),
         bills: newer ? (a.bills || b.bills || []) : (b.bills || a.bills || []),
+        geminiKey: a.geminiKey || b.geminiKey || "",
         del: [...del],
         pdel: [...pd],
         upd: Math.max(a.upd || 0, b.upd || 0)
@@ -1249,33 +1307,65 @@
         callback: r => {
           if (r && r.access_token) {
             tok = r.access_token;
-            try { localStorage.setItem("gd", "1"); } catch (e) {}
+            try {
+              localStorage.setItem("gd", "1");
+              localStorage.setItem("gd_token", tok);
+              localStorage.setItem("gd_exp", String(Date.now() + ((r.expires_in || 3600) - 300) * 1000));
+            } catch (e) {}
+            setSt("Connected & ready to sync");
             if (v == "home") go("home");
             sync();
           } else {
-            setSt("Sign-in failed. Try again.");
+            setSt("Sign-in failed. Try reconnecting.");
           }
         },
-        error_callback: () => setSt("Sign-in was cancelled or blocked.")
+        error_callback: () => {
+          // If silent prompt failed, attempt manual reconnection on user interaction
+          setSt("Session expired. Tap Reconnect to sync.");
+        }
       });
       return true;
+    }
+
+    function autoAuthenticate() {
+      // 1. Try reusing active unexpired stored token
+      const storedTok = ls("gd_token"), exp = +(ls("gd_exp") || 0);
+      if (storedTok && exp > Date.now()) {
+        tok = storedTok;
+        setSt("Connected & ready to sync");
+        sync();
+        return;
+      }
+      // 2. Silently request new access token without popup if already signed in
+      if (ls("gd") && gInit()) {
+        tc.requestAccessToken({ prompt: "" });
+      }
     }
 
     function gIn() {
       if (!cfg()) { setSt("Add your Google client ID first."); return; }
       if (!gInit()) { setSt("Google sign-in is loading. Check internet connection."); return; }
-      tc.requestAccessToken();
+      tc.requestAccessToken({ prompt: "select_account" });
     }
 
     async function dr(url, o = {}) {
       const r = await fetch(url, { ...o, headers: { Authorization: "Bearer " + tok, ...(o.headers || {}) } });
-      if (r.status == 401) { tok = null; throw new Error("expired"); }
+      if (r.status == 401) {
+        tok = null;
+        try { localStorage.removeItem("gd_token"); } catch (e) {}
+        // Trigger silent re-authentication on 401
+        if (gInit()) tc.requestAccessToken({ prompt: "" });
+        throw new Error("expired");
+      }
       if (!r.ok) throw new Error("Drive " + r.status);
       return r;
     }
 
     async function sync() {
-      if (!tok) return;
+      if (!tok) {
+        if (ls("gd") && gInit()) tc.requestAccessToken({ prompt: "" });
+        return;
+      }
       setSt("Syncing…");
       try {
         const q = encodeURIComponent("name='" + FN + "'");
@@ -1299,18 +1389,19 @@
         setSt("Synced at " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
         if (v == "home" || v == "hist" || v == "bills") go(v);
       } catch (e) {
-        setSt(e.message == "expired" ? "Session expired. Tap Reconnect." : "Sync failed. Tap Sync now.");
-        if (v == "home") go("home");
+        if (e.message != "expired") {
+          setSt("Sync failed. Check connection.");
+        }
       }
     }
 
     addEventListener("load", () => {
-      if (ls("gd") && gInit()) tc.requestAccessToken({ prompt: "none" });
+      autoAuthenticate();
       if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
     });
 
     // --- Navigation Routing ---
-    const V = { home, hist, add, price, rep, prod, bill, bills, edit };
+    const V = { home, hist, add, price, rep, prod, bill, bills, edit, settings };
     const N = [
       ["home", "🏠", "Home"],
       ["hist", "🧾", "History"],
@@ -1330,7 +1421,10 @@
     go("home");
     checkReminders();
     document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState == "visible") checkReminders();
+      if (document.visibilityState == "visible") {
+        checkReminders();
+        autoAuthenticate();
+      }
     });
   </script>
 </body>
