@@ -300,7 +300,9 @@
   <main id="app"></main>
   <nav><div id="nav"></div></nav>
 
-  <script>
+  <script type="module">
+    import { shrinkImage, pdfToCanvas, parseWithGemini, localOcr, parseLocalText } from './bill-parser.mjs';
+
     // --- Master Catalog ---
     const P = [
       ["Rent", "🏠", "Bills & Utilities"],
@@ -417,10 +419,36 @@
     const sum = a => a.reduce((s, i) => s + i.total, 0);
     const row = i => `<div class="row"><span class="em">${emo(i.name)}</span><div class="g"><b>${esc(i.name)}</b><small>${i.qty} ${i.unit} · ${fm(i.price)}/${i.unit}${i.store ? " · " + esc(i.store) : ""}</small></div><div class="r"><b>${fm(i.total)}</b><small>${df(i.date)}</small></div></div>`;
     const shift = d => { const [y, m] = mo.split("-").map(Number); const n = new Date(y, m - 1 + d, 1); mo = n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); go(v); };
-    const mnav = () => `<div class="mnav"><button onclick="shift(-1)">‹</button><span>${new Date(mo + "-01T00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</span><button onclick="shift(1)">›</button></div>`;
+    const mnav = () => `<div class="mnav"><button onclick="window.shift(-1)">‹</button><span>${new Date(mo + "-01T00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</span><button onclick="window.shift(1)">›</button></div>`;
     const empty = t => `<div class="empty">${t}</div>`;
 
-    // --- Home Screen ---
+    // Expose helpers to window for inline onclick handlers
+    window.go = go;
+    window.shift = shift;
+    window.editItem = editItem;
+    window.del = del;
+    window.eTot = eTot;
+    window.saveEdit = saveEdit;
+    window.pick = pick;
+    window.tot = tot;
+    window.addP = addP;
+    window.saveSettings = saveSettings;
+    window.bs = bs;
+    window.bt = bt;
+    window.addBatchBill = addBatchBill;
+    window.handleBillUpload = handleBillUpload;
+    window.pf = pf;
+    window.addProd = addProd;
+    window.delProd = delProd;
+    window.shiftRep = shiftRep;
+    window.bfC = bfC;
+    window.markPaid = markPaid;
+    window.addBill = addBill;
+    window.delBill = delBill;
+    window.askNotif = askNotif;
+    window.gIn = gIn;
+    window.sync = sync;
+
     function home() {
       const cur = today().slice(0, 7), it = inMo(cur), t = sum(it), b = S.budget, left = b - t, p = Math.min(100, b > 0 ? (t / b) * 100 : 0);
       const due = S.bills.filter(x => !paidToday(x) && nextDue(x) <= addDays(today(), 2));
@@ -434,7 +462,7 @@
       ${due.length ? `<div class="card" style="border-color:#f59e0b"><b>⏰ ${due.length} bill${due.length > 1 ? "s" : ""} due soon</b>${due.map(x => `<div class="row"><span class="em">${BE[x.category] || "🧾"}</span><div class="g"><b>${esc(x.name)}</b><small>${nextDue(x) == today() ? "Due today" : "Due " + df(nextDue(x))}</small></div><div class="r"><b>${fm(x.amount)}</b></div></div>`).join("")}<button class="link" onclick="go('bills')">Manage bills</button></div>` : ""}
       <div class="tiles">
         <button class="tile" onclick="go('add')">➕<b>Add purchase</b><small>Log item manually</small></button>
-        <button class="tile" onclick="go('bill')">📷<b>AI Bill Scanner</b><small>Smart OCR & Item Knowledge</small></button>
+        <button class="tile" onclick="go('bill')">📷<b>AI Bill Scanner</b><small>Modular Knowledge Engine</small></button>
         <button class="tile" onclick="go('rep')">📊<b>View reports</b><small>Insights &amp; trends</small></button>
         <button class="tile" onclick="go('price')">🏷️<b>Price tracker</b><small>Compare stores</small></button>
         <button class="tile" onclick="go('bills')">🔔<b>Bills &amp; EMIs</b><small>Reminders & tracking</small></button>
@@ -444,7 +472,6 @@
       <div class="card">${S.items.length ? [...S.items].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 5).map(row).join("") : empty("No purchases yet. Tap + to add your first one.")}</div>${gcard()}`;
     }
 
-    // --- History Screen ---
     function hist() {
       const it = inMo(mo);
       return `<h1>Purchase history</h1>${mnav()}
@@ -539,7 +566,6 @@
       go("hist");
     }
 
-    // --- Manual Add Screen ---
     function add() {
       return `<h1>Add purchase</h1>
       <button class="tile" style="width:100%;margin-bottom:12px" onclick="go('bill')">📷<b>Scan a bill instead</b><small>Extract items, rates & stores automatically</small></button>
@@ -554,7 +580,7 @@
         <label>Price per unit (₹)</label><input id="pr" type="number" inputmode="decimal" min="0" step="any" oninput="tot()" placeholder="e.g. 40">
         <label>Date</label><input id="dt" type="date" value="${today()}">
         <label>Payment mode</label><select id="pm">${opts(["Cash", "UPI", "Card"], "Cash")}</select>
-        <label>Notes (optional)</label><input id="nt" maxlength="80" placeholder="e.g. Weekly provisions">
+        <label>Notes (optional)</label><input id="nt" maxlength="80" placeholder="e.g. Provisions">
         <div class="total"><span>Total amount</span><span id="tt">₹0</span></div>
         <div class="err" id="err"></div>
         <button class="btn" onclick="addP()">Save purchase</button>
@@ -597,21 +623,20 @@
       go("hist");
     }
 
-    // --- Settings Screen (With Name and Gemini API Key) ---
     function settings() {
       return `<h1>App Settings</h1>
       <div class="card">
         <b>👤 Profile Information</b>
         <label>Your Name</label>
         <input id="unm" value="${esc(S.userName || "")}" placeholder="e.g. Priya" maxlength="30">
-        <small style="display:block;margin-top:4px">Used to personalize your greeting on the home screen.</small>
+        <small style="display:block;margin-top:4px">Personalizes greeting on the home screen.</small>
       </div>
       <div class="card">
         <b>🤖 Gemini Vision AI Key</b>
-        <small style="display:block;margin:6px 0 10px">Adding your free Gemini API key guarantees that Tamil/Indian receipt formats are processed accurately without misreading addresses or lines.</small>
+        <small style="display:block;margin:6px 0 10px">Guarantees accurate Tamil/Indian grocery slip reading.</small>
         <label>Google AI Studio API Key</label>
         <input id="gk" type="password" value="${esc(S.geminiKey || "")}" placeholder="AIzaSy...">
-        <small style="display:block;margin-top:6px">Get a free key from <a href="https://aistudio.google.com/" target="_blank" style="color:var(--blue)">aistudio.google.com</a>. Stored locally only.</small>
+        <small style="display:block;margin-top:6px">Free key from <a href="https://aistudio.google.com/" target="_blank" style="color:var(--blue)">aistudio.google.com</a>.</small>
       </div>
       <button class="btn" onclick="saveSettings()">Save Settings</button>`;
     }
@@ -624,279 +649,32 @@
       go("home");
     }
 
-    // --- Image Processing & Local Canvas Helpers ---
-    function shrink(f) {
-      return new Promise((ok, no) => {
-        const u = URL.createObjectURL(f), im = new Image();
-        im.onload = () => {
-          const m = 1800, r = Math.min(1, m / Math.max(im.width, im.height)), c = document.createElement("canvas");
-          c.width = Math.round(im.width * r);
-          c.height = Math.round(im.height * r);
-          c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
-          URL.revokeObjectURL(u);
-          ok(c);
-        };
-        im.onerror = () => { URL.revokeObjectURL(u); no(new Error("Image render failed")); };
-        im.src = u;
-      });
-    }
-
-    let pdfjsReady = null;
-    function loadPdfJs() {
-      if (pdfjsReady) return pdfjsReady;
-      pdfjsReady = new Promise((res, rej) => {
-        const s = document.createElement("script");
-        s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.js";
-        s.onload = () => {
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js";
-          res();
-        };
-        s.onerror = () => rej(new Error("PDF engine failed to load"));
-        document.head.appendChild(s);
-      });
-      return pdfjsReady;
-    }
-
-    async function pdfToCanvas(file) {
-      await loadPdfJs();
-      const buf = await file.arrayBuffer();
-      const doc = await window.pdfjsLib.getDocument({ data: buf }).promise;
-      const page = await doc.getPage(1);
-      const vp0 = page.getViewport({ scale: 1 }), scale = Math.min(2, 1600 / vp0.width), vp = page.getViewport({ scale });
-      const c = document.createElement("canvas");
-      c.width = vp.width;
-      c.height = vp.height;
-      await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
-      return c;
-    }
-
-    // --- Knowledge-Infused Gemini Vision Parser ---
-    async function parseReceiptWithGemini(base64Data, apiKey, statusCb) {
-      if (statusCb) statusCb("Interpreting bill with Gemini Vision AI...");
-      const categories = Object.keys(AllC()).join(", ");
-      const prompt = `You are an expert grocery bill parser specifically trained on Indian & Tamil Nadu provision shop receipts (e.g., thermal rolls, printed slips from provision stores).
-Extract receipt data into a clean JSON structure adhering strictly to the JSON schema below. Return ONLY pure JSON with no markdown wrapping or text.
-
-{
-  "store": "Name of the store / supermarket (e.g. EWNS PROVISION STORE)",
-  "date": "YYYY-MM-DD format (convert any DD/MM/YYYY or DD-MM-YY to ISO). Defaults to ${today()}",
-  "pay": "Cash, UPI, or Card",
-  "total": 0.00,
-  "items": [
-    {
-      "name": "Proper item name in English (e.g., Cinthol Soap, Toor Dal, Sunflower Oil)",
-      "qty": 1.0,
-      "unit": "kg, g, L, ml, or pcs",
-      "amount": 0.00,
-      "cat": "Pick closest category from: ${categories}"
-    }
-  ]
-}
-
-CRITICAL RULES TO AVOID ERRORS:
-1. EXCLUDE all header text lines like street addresses (e.g. 'No.123, P.V.Vaithiyalingam Road', 'Old Pallavaram', 'Chennai-600117'), phone numbers, GSTIN numbers, and 'Bill No / Invoice No'. NEVER add them as items.
-2. EXCLUDE all tender, payment, and footer lines (e.g. 'Paid: 326.00', 'Returned: 0.00', 'Change', 'Items Count', 'Save Trees').
-3. For tabular columns formatted like: [Item] [Qty] [Rate/MRP] [Net Amount]:
-   - Extract the real item name (clean OCR typos: e.g. 'CINTHOL OLD RS40' -> 'Cinthol Soap', 'yefl edGlLEed' -> 'Edible Oil / Toor Dal').
-   - Extract actual weight or count (e.g., 0.5 kg, 250 g, 2 pcs).
-   - "amount" MUST be the actual net amount paid for that item row.
-4. "total" must be the final net payable total of the receipt.`;
-
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inline_data: { mime_type: "image/jpeg", data: base64Data } }
-            ]
-          }],
-          generationConfig: { response_mime_type: "application/json" }
-        })
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error?.message || "Gemini Vision rejected request");
-      }
-      const data = await response.json();
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      return JSON.parse(rawText);
-    }
-
-    // --- Knowledge-Based Local Heuristic Parser ---
-    let tessReady = null;
-    function loadTess() {
-      if (tessReady) return tessReady;
-      tessReady = new Promise((res, rej) => {
-        const s = document.createElement("script");
-        s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
-        s.onload = () => res();
-        s.onerror = () => rej(new Error("OCR engine failed to load"));
-        document.head.appendChild(s);
-      });
-      return tessReady;
-    }
-
-    async function localOcr(canvas, statusCb) {
-      await loadTess();
-      const r = await window.Tesseract.recognize(canvas, "eng", {
-        logger: m => {
-          if (statusCb && m.status) statusCb(`${m.status} ${m.progress ? Math.round(m.progress * 100) + "%" : ""}`);
-        }
-      });
-      return (r && r.data && r.data.text) || "";
-    }
-
-    // Comprehensive rejection list for non-item lines
-    const REJECT_PATTERNS = [
-      /no[\s.:-]*\d+/i,
-      /road|street|nagar|salai|lane|pallavaram|chennai|tamil\s*nadu|pincode|pin[\s.:-]*\d{6}/i,
-      /bill\s*no|inv\s*no|invoice|estimate|cash\s*bill|memo|counter/i,
-      /phone|mobile|cell|ph[\s.:-]*\d+/i,
-      /gstin|tin|fssai|cin/i,
-      /paid\s*[:=]|returned|change|balance|round\s*off|sub\s*total/i,
-      /thank\s*you|visit\s*again|save\s*trees|customer/i
-    ];
-
-    const GROCERY_KNOWLEDGE = [
-      { trigger: /cinthol|soap|hamam|lux|lifebuoy|dove|mysore/i, name: "Bath Soap", cat: "Personal care", unit: "pcs" },
-      { trigger: /oil|gold\s*winner|sunflower|groundnut|gingelly|deepam/i, name: "Cooking Oil", cat: "Grocery", unit: "L" },
-      { trigger: /rice|ponni|basmati|idly\s*rice/i, name: "Rice", cat: "Grains", unit: "kg" },
-      { trigger: /toor|urad|moong|channa|dal|dhal|paruppu/i, name: "Dal / Pulses", cat: "Grains", unit: "kg" },
-      { trigger: /atta|maida|sooji|flour|rava/i, name: "Wheat Flour / Atta", cat: "Grains", unit: "kg" },
-      { trigger: /sugar|sakkarai|jaggery/i, name: "Sugar", cat: "Grocery", unit: "kg" },
-      { trigger: /salt|uppu/i, name: "Salt", cat: "Grocery", unit: "kg" },
-      { trigger: /mustard|kadugu|jeera|seeragam|pepper|milagu|sompu/i, name: "Spices", cat: "Grocery", unit: "g" },
-      { trigger: /tea|coffee|bru|taj\s*mahal/i, name: "Tea / Coffee", cat: "Grocery", unit: "g" },
-      { trigger: /paste|colgate|close\s*up|brush/i, name: "Oral Care", cat: "Personal care", unit: "pcs" },
-      { trigger: /detergent|surf|ariel|rin|vim|dishwash/i, name: "Cleaning Supplies", cat: "Household", unit: "pcs" }
-    ];
-
-    function fallbackParseTextToJson(rawText) {
-      const lines = rawText.split("\n").map(l => l.trim()).filter(Boolean);
-
-      let store = "";
-      for (const line of lines.slice(0, 5)) {
-        if (!REJECT_PATTERNS.some(re => re.test(line)) && line.length >= 3 && !/^\d/.test(line)) {
-          store = line;
-          break;
-        }
-      }
-
-      let date = today();
-      const dMatch = rawText.match(/([0-3]?\d)[\/\-.]([01]?\d)[\/\-.]((?:20)?\d\d)/);
-      if (dMatch) {
-        let dd = +dMatch[1], mm = +dMatch[2], yy = +dMatch[3];
-        if (yy < 100) yy += 2000;
-        if (dd >= 1 && dd <= 31 && mm >= 1 && mm <= 12) date = `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
-      }
-
-      let billTotal = 0;
-      const tMatch = rawText.match(/(?:total|net\s*amt|amount\s*payable|grand\s*total)[^\d\n]*([0-9,]+\.?[0-9]{0,2})/i);
-      if (tMatch) {
-        billTotal = parseFloat(tMatch[1].replace(/,/g, "")) || 0;
-      }
-
-      const items = [];
-      for (let line of lines) {
-        if (REJECT_PATTERNS.some(re => re.test(line))) continue;
-
-        const nums = [];
-        const numRegex = /(?:\b|^)(\d+(?:\.\d+)?)(?:\b|$)/g;
-        let nm;
-        while ((nm = numRegex.exec(line)) !== null) {
-          nums.push(parseFloat(nm[1]));
-        }
-
-        if (nums.length < 1) continue;
-
-        let netAmount = nums[nums.length - 1];
-        if (isNaN(netAmount) || netAmount <= 0 || netAmount > 50000) continue;
-
-        let qty = 1, unit = "pcs";
-        const unitMatch = line.match(/(\d+(?:\.\d+)?)\s*(kg|g|gm|gms|l|ltr|ltrs|ml|pcs|nos)/i);
-        if (unitMatch) {
-          qty = parseFloat(unitMatch[1]) || 1;
-          const uStr = unitMatch[2].toLowerCase();
-          if (uStr.startsWith("kg")) unit = "kg";
-          else if (uStr.startsWith("g")) unit = "g";
-          else if (uStr.startsWith("l")) unit = "L";
-          else if (uStr.startsWith("ml")) unit = "ml";
-        } else if (nums.length >= 3) {
-          const possibleQty = nums[nums.length - 3];
-          const possibleRate = nums[nums.length - 2];
-          if (Math.abs(possibleQty * possibleRate - netAmount) <= 1.0) {
-            qty = possibleQty;
-          }
-        }
-
-        let cleanName = line
-          .replace(/(\d+(?:\.\d+)?)\s*(kg|g|gm|gms|l|ltr|ltrs|ml|pcs|nos)/gi, "")
-          .replace(/[\d.,]+$/g, "")
-          .replace(/[0-9*#@₹$:%]/g, "")
-          .replace(/\s{2,}/g, " ")
-          .trim();
-
-        if (cleanName.length < 2) continue;
-
-        let detectedCategory = "Grocery";
-        for (const entry of GROCERY_KNOWLEDGE) {
-          if (entry.trigger.test(cleanName) || entry.trigger.test(line)) {
-            cleanName = entry.name;
-            detectedCategory = entry.cat;
-            if (unit === "pcs" && entry.unit) unit = entry.unit;
-            break;
-          }
-        }
-
-        items.push({
-          name: cleanName,
-          qty: qty,
-          unit: unit,
-          amount: netAmount,
-          cat: detectedCategory,
-          on: true
-        });
-      }
-
-      return {
-        store,
-        date,
-        pay: /upi|gpay|phonepe/i.test(rawText) ? "UPI" : /card|pos/i.test(rawText) ? "Card" : "Cash",
-        total: billTotal,
-        items
-      };
-    }
-
-    // --- Bill Scan & Batch Upload Coordinator ---
     async function handleBillUpload(file) {
       if (!file) return;
       B = { busy: true, status: "Loading image file..." };
       go("bill");
       try {
-        let canvas = file.type === "application/pdf" ? await pdfToCanvas(file) : await shrink(file);
+        let canvas = file.type === "application/pdf" ? await pdfToCanvas(file) : await shrinkImage(file);
         B.img = canvas.toDataURL("image/jpeg", 0.85);
         const base64Data = B.img.split(",")[1];
 
         let parsedJson;
         if (S.geminiKey) {
           try {
-            parsedJson = await parseReceiptWithGemini(base64Data, S.geminiKey, st => {
+            parsedJson = await parseWithGemini(base64Data, S.geminiKey, Object.keys(AllC()).join(", "), today(), st => {
               B.status = st;
               const el = $("#bstatus");
               if (el) el.textContent = st;
             });
           } catch (aiErr) {
-            console.warn("Gemini Vision failed, falling back to local engine:", aiErr);
+            console.warn("Gemini Vision failed, falling back to local module:", aiErr);
             B.status = "Falling back to local OCR knowledge engine...";
             const el = $("#bstatus"); if (el) el.textContent = B.status;
             const text = await localOcr(canvas, st => {
               B.status = st;
               const e = $("#bstatus"); if (e) e.textContent = st;
             });
-            parsedJson = fallbackParseTextToJson(text);
+            parsedJson = parseLocalText(text, today());
           }
         } else {
           B.status = "Interpreting bill via local OCR engine...";
@@ -905,7 +683,7 @@ CRITICAL RULES TO AVOID ERRORS:
             B.status = st;
             const e = $("#bstatus"); if (e) e.textContent = st;
           });
-          parsedJson = fallbackParseTextToJson(text);
+          parsedJson = parseLocalText(text, today());
         }
 
         B.busy = false;
@@ -931,7 +709,7 @@ CRITICAL RULES TO AVOID ERRORS:
       if (!B || !B.items) {
         return `<h1>Scan a bill</h1>
         <div class="card">
-          <small>Take a clear photo of your receipt. Structured to parse store names, item lines, units, and exclude invoice/address noise.</small>
+          <small>Take a clear photo of your receipt. Modular knowledge parser filters out address/phone artifacts.</small>
           ${!S.geminiKey ? `<div style="margin:8px 0;font-size:12px;background:#fef3c7;color:#92400e;padding:8px;border-radius:8px">💡 <b>Accuracy tip:</b> Add a free Gemini Vision API Key in <a href="#" onclick="go('settings')" style="color:#b45309;font-weight:700">Settings</a> for 100% reliable receipt recognition.</div>` : ""}
           ${up}
           ${B && B.busy ? `<div class="empty"><b id="bstatus">${esc(B.status || "Reading image...")}</b><br><small>Filtering noise & validating lines...</small></div>` : ""}
@@ -987,7 +765,7 @@ CRITICAL RULES TO AVOID ERRORS:
         <div id="bchk"></div>
         <div class="err" id="berr"></div>
         <button class="btn" id="badd" onclick="addBatchBill()">Add to spending</button>
-        <button class="link" style="display:block;margin-extra auto 0" onclick="B=null;go('bill')">Discard bill</button>
+        <button class="link" style="display:block;margin:12px auto 0" onclick="B=null;go('bill')">Discard bill</button>
       </div>
       ${up}`;
     }
@@ -1015,7 +793,7 @@ CRITICAL RULES TO AVOID ERRORS:
 
       const diff = B.total ? +(t - B.total).toFixed(2) : 0;
       if (!B.total) {
-        $("#bchk").innerHTML = `<div class="warn">Enter printed bill total above to verify the individual item sum.</div>`;
+        $("#bchk").innerHTML = `<div class="warn">Enter printed bill total above to verify individual item sum.</div>`;
       } else if (Math.abs(diff) <= 0.5) {
         $("#bchk").innerHTML = `<div class="warn ok">✓ Match verified: Sum of items equals bill total (${fm(B.total)})</div>`;
       } else {
@@ -1062,7 +840,6 @@ CRITICAL RULES TO AVOID ERRORS:
       go("hist");
     }
 
-    // --- Price Tracker ---
     const SC = ["#1d4ed8", "#16a34a", "#f97316", "#8b5cf6", "#ec4899", "#06b6d4"];
     let stf = "all", curSt = [];
     const nz = i => i.unit == "g" ? { p: i.price * 1000, u: "kg" } : i.unit == "ml" ? { p: i.price * 1000, u: "L" } : { p: i.price, u: i.unit };
@@ -1093,7 +870,6 @@ CRITICAL RULES TO AVOID ERRORS:
       <div class="card"><b>Previous purchases</b>${[...pts].reverse().map(i => `<div class="row"><div class="g">${df(i.date)}<br><small>${esc(sn(i))}</small></div><b>${fm(i.p)}/${u}</b></div>`).join("")}</div>`;
     }
 
-    // --- Product Catalog Screen ---
     function prod() {
       return `<h1>My products</h1><div class="card"><label style="margin-top:0">Product name</label><input id="pn" maxlength="40" placeholder="e.g. Idli batter">
       <div class="f"><div><label>Emoji</label><input id="pe" value="🛒" maxlength="4"></div><div><label>Default unit</label><select id="pu">${opts(UN, "kg")}</select></div></div>
@@ -1119,7 +895,6 @@ CRITICAL RULES TO AVOID ERRORS:
       go("prod");
     }
 
-    // --- Reports Screen ---
     function periodRange(type, anchor) {
       const d = new Date(anchor + "T00:00");
       if (type == "day") return [anchor, anchor];
@@ -1230,7 +1005,6 @@ CRITICAL RULES TO AVOID ERRORS:
       <div class="card"><b>Spending over time</b><svg viewBox="0 0 290 115" width="100%" role="img" aria-label="Spending over time">${bars}</svg></div>`;
     }
 
-    // --- Recurring Bills & Commitments ---
     function paidToday(b) {
       return S.items.some(i => i.date == today() && i.name == b.name && i.cat == b.category);
     }
@@ -1451,7 +1225,7 @@ CRITICAL RULES TO AVOID ERRORS:
         const l = await (await dr("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=" + q + "&fields=files(id)")).json();
         const id = l.files[0] && l.files[0].id;
         if (id) {
-          const rm = await (await dr("https://www.googleapis.com/drive/v3/files/" + id + "?alt=media")).json();
+          const rm = await (await dr("https://www.googleapis.com/drive/v3/files/"+id+"?alt=media")).json();
           S = merge(S, rm);
           S.prods = S.prods || [];
           S.bills = S.bills || [];
