@@ -196,7 +196,7 @@ return `<h1>Reports</h1>${mnav()}<div class="card"><div class="f" style="align-i
 <div class="card"><b>Last 7 days</b><svg viewBox="0 0 290 115" width="100%" role="img" aria-label="Daily spending">${bars}</svg></div>`}
 
 // ---------- Google Drive sync (stores one JSON file in this app's hidden Drive app-data folder) ----------
-const CLIENT_ID="386974473840-bhnhm2qv91iq87c3lt78hp8b3gs2tp61.apps.googleusercontent.com",FN="spend-tracker.json";
+const CLIENT_ID="PASTE_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com",FN="spend-tracker.json";
 let tok=null,tc=null,timer=null;
 const ls=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
 const cfg=()=>!CLIENT_ID.startsWith("PASTE");
@@ -205,7 +205,8 @@ const setSt=t=>{sst=t;const e=$("#gst");if(e)e.textContent=t};
 const gcard=()=>`<div class="card"><div class="head"><b>Google Drive backup</b>${tok?`<button class="link" onclick="sync()">Sync now</button>`:`<button class="link" onclick="gIn()">${ls("gd")?"Reconnect":"Sign in"}</button>`}</div><small id="gst">${esc(sst)}</small></div>`;
 function merge(a,b){const del=new Set([...(a.del||[]),...(b.del||[])]),pd=new Set([...(a.pdel||[]),...(b.pdel||[])]),m=new Map(),pm=new Map();
 [...(b.items||[]),...(a.items||[])].forEach(i=>m.set(i.id,i));[...(b.prods||[]),...(a.prods||[])].forEach(p=>pm.set(p.name.toLowerCase(),p));
-return{budget:(a.upd||0)>=(b.upd||0)?a.budget:b.budget,items:[...m.values()].filter(i=>!del.has(i.id)),prods:[...pm.values()].filter(p=>!pd.has(p.name.toLowerCase())),del:[...del],pdel:[...pd],upd:Math.max(a.upd||0,b.upd||0)}}
+const newer=(a.upd||0)>=(b.upd||0);
+return{budget:newer?a.budget:b.budget,items:[...m.values()].filter(i=>!del.has(i.id)),prods:[...pm.values()].filter(p=>!pd.has(p.name.toLowerCase())),bills:newer?(a.bills||b.bills||[]):(b.bills||a.bills||[]),del:[...del],pdel:[...pd],upd:Math.max(a.upd||0,b.upd||0)}}
 function gInit(){if(tc)return true;if(!cfg()||!(window.google&&google.accounts&&google.accounts.oauth2))return false;
 tc=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:"https://www.googleapis.com/auth/drive.appdata",
 callback:r=>{if(r&&r.access_token){tok=r.access_token;try{localStorage.setItem("gd","1")}catch(e){}if(v=="home")go("home");sync()}else setSt("Sign-in failed. Try again.")},
@@ -217,17 +218,19 @@ async function sync(){if(!tok)return;setSt("Syncing…");
 try{const q=encodeURIComponent("name='"+FN+"'");
 const l=await(await dr("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q="+q+"&fields=files(id)")).json();
 const id=l.files[0]&&l.files[0].id;
-if(id){const rm=await(await dr("https://www.googleapis.com/drive/v3/files/"+id+"?alt=media")).json();S=merge(S,rm);S.prods=S.prods||[];raw()}
+if(id){const rm=await(await dr("https://www.googleapis.com/drive/v3/files/"+id+"?alt=media")).json();S=merge(S,rm);S.prods=S.prods||[];S.bills=S.bills||[];raw()}
 const body=JSON.stringify(S);
 if(id)await dr("https://www.googleapis.com/upload/drive/v3/files/"+id+"?uploadType=media",{method:"PATCH",headers:{"Content-Type":"application/json"},body});
 else{const b="ss"+Date.now(),mp=`--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name:FN,parents:["appDataFolder"]})}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`;
 await dr("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",{method:"POST",headers:{"Content-Type":"multipart/related; boundary="+b},body:mp})}
-setSt("Synced at "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));if(v=="home"||v=="hist")go(v)}
+setSt("Synced at "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));if(v=="home"||v=="hist"||v=="bills")go(v)}
 catch(e){setSt(e.message=="expired"?"Session expired. Tap Reconnect.":"Sync failed. Check your connection and tap Sync now.");if(v=="home")go("home");setSt(sst)}}
 addEventListener("load",()=>{if(ls("gd")&&gInit())tc.requestAccessToken({prompt:"none"});if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{})});
 
-const V={home,hist,add,price,rep,prod,bill};
+const V={home,hist,add,price,rep,prod,scan,bill,bills};
 const N=[["home","🏠","Home"],["hist","🧾","History"],["add"],["price","🏷️","Prices"],["rep","📊","Reports"]];
-function go(x){v=x;$("#app").innerHTML=V[x]();$("#nav").innerHTML=N.map(n=>n[1]?`<button class="${n[0]==v?"on":""}" onclick="go('${n[0]}')"><span>${n[1]}</span>${n[2]}</button>`:`<button class="plus" aria-label="Add purchase" onclick="go('add')">+</button>`).join("");window.scrollTo(0,0);if(x=="bill")bt()}
+function go(x){v=x;$("#app").innerHTML=V[x]();$("#nav").innerHTML=N.map(n=>n[1]?`<button class="${n[0]==v?"on":""}" onclick="go('${n[0]}')"><span>${n[1]}</span>${n[2]}</button>`:`<button class="plus" aria-label="Add purchase" onclick="freshAdd()">+</button>`).join("");window.scrollTo(0,0);if(x=="bill")bt()}
 go("home");
+checkReminders();
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState=="visible")checkReminders()});
 </script></body></html>
