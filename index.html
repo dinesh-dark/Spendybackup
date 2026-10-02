@@ -53,7 +53,7 @@
       font: 15px/1.4 Inter, system-ui, -apple-system, Segoe UI, sans-serif;
     }
     main {
-      max-width: 480px;
+      max-width: 520px;
       margin: 0 auto;
       padding: 16px 16px 96px;
     }
@@ -225,6 +225,24 @@
     .leg { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 5px 0; }
     .leg i { width: 10px; height: 10px; border-radius: 3px; }
     .leg b { margin-left: auto; }
+    .bi { border-bottom: 1px solid var(--line); padding: 10px 0; }
+    .bi:last-child { border: 0; }
+    .bi .f { margin-top: 6px; }
+    .bi input, .bi select { padding: 8px 10px; }
+    .bi.off { opacity: .45; }
+    .warn {
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-top: 10px;
+      font-size: 13px;
+      background: color-mix(in srgb, var(--red) 12%, var(--card));
+      color: var(--red);
+    }
+    .warn.ok {
+      background: color-mix(in srgb, var(--green) 12%, var(--card));
+      color: var(--green);
+    }
+    .thumb { max-width: 100%; max-height: 220px; display: block; margin: 10px auto 0; border-radius: 10px; }
     nav {
       position: fixed;
       left: 0;
@@ -264,6 +282,18 @@
       display: block;
       box-shadow: 0 4px 12px #1d4ed855;
     }
+    .json-box {
+      background: #0f172a;
+      color: #38bdf8;
+      padding: 10px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 11px;
+      max-height: 120px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      margin-top: 8px;
+    }
   </style>
 </head>
 <body>
@@ -286,7 +316,7 @@
       ["Oil", "🛢️", "Grocery"],
       ["Sugar", "🍬", "Grocery"],
       ["Salt", "🧂", "Grocery"],
-      ["Spices", "🌶️", "Grocery"],
+      ["Spices", "🌶️️", "Grocery"],
       ["Tomato", "🍅", "Vegetables"],
       ["Potato", "🥔", "Vegetables"],
       ["Onion", "🧅", "Vegetables"],
@@ -307,7 +337,7 @@
       ["Personal care", "🧼", "Personal care"],
       ["Clothes & Footwear", "👗", "Shopping"],
       ["Education Fees", "🎒", "Education"],
-      ["Miscellaneous", "🏷️", "Miscellaneous"]
+      ["Miscellaneous", "🏷️️", "Miscellaneous"]
     ];
 
     const CC = {
@@ -350,6 +380,7 @@
     };
 
     const AllC = () => ({ ...CC, ...BC });
+    const UN = ["kg", "g", "L", "ml", "pcs"];
 
     let S = null;
     try { S = JSON.parse(localStorage.getItem("st")); } catch (e) {}
@@ -368,8 +399,11 @@
     const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
     const ymd = d => new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
     const addDays = (ds, n) => { const d = new Date(ds + "T00:00"); d.setDate(d.getDate() + n); return ymd(d); };
+    const opts = (a, x) => a.map(o => `<option ${o == x ? "selected" : ""}>${esc(o)}</option>`).join("");
 
-    let v = "home", mo = today().slice(0, 7), sel = null, scanImg = null, scanGuess = null, repType = "month", repAnchor = today(), repFrom = null, repTo = null;
+    let v = "home", mo = today().slice(0, 7), sel = null, editId = null, B = null;
+    let repType = "month", repAnchor = today(), repFrom = null, repTo = null;
+
     const inMo = m => S.items.filter(i => i.date.startsWith(m)).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
     const sum = a => a.reduce((s, i) => s + i.total, 0);
     const row = i => `<div class="row"><span class="em">${emo(i.name)}</span><div class="g"><b>${esc(i.name)}</b><small>${i.qty} ${i.unit} · ${fm(i.price)}/${i.unit}${i.store ? " · " + esc(i.store) : ""}</small></div><div class="r"><b>${fm(i.total)}</b><small>${df(i.date)}</small></div></div>`;
@@ -377,6 +411,7 @@
     const mnav = () => `<div class="mnav"><button onclick="shift(-1)">‹</button><span>${new Date(mo + "-01T00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</span><button onclick="shift(1)">›</button></div>`;
     const empty = t => `<div class="empty">${t}</div>`;
 
+    // --- Home Screen ---
     function home() {
       const cur = today().slice(0, 7), it = inMo(cur), t = sum(it), b = S.budget, left = b - t, p = Math.min(100, b > 0 ? (t / b) * 100 : 0);
       const due = S.bills.filter(x => !paidToday(x) && nextDue(x) <= addDays(today(), 2));
@@ -386,20 +421,39 @@
       <div class="two"><div><small>Monthly budget</small><br>₹<input type="number" inputmode="decimal" value="${b}" onchange="S.budget=+this.value||0;save();go('home')" aria-label="Monthly budget"></div>
       <div style="text-align:right"><small>${left < 0 ? "Over budget" : "Remaining"}</small><br><b>${fm(Math.abs(left))}</b></div></div></div>
       ${due.length ? `<div class="card" style="border-color:#f59e0b"><b>⏰ ${due.length} bill${due.length > 1 ? "s" : ""} due soon</b>${due.map(x => `<div class="row"><span class="em">${BE[x.category] || "🧾"}</span><div class="g"><b>${esc(x.name)}</b><small>${nextDue(x) == today() ? "Due today" : "Due " + df(nextDue(x))}</small></div><div class="r"><b>${fm(x.amount)}</b></div></div>`).join("")}<button class="link" onclick="go('bills')">Manage bills</button></div>` : ""}
-      <div class="tiles"><button class="tile" onclick="freshAdd()">➕<b>Add purchase</b><small>Log what you bought</small></button>
-      <button class="tile" onclick="go('scan')">📷<b>Scan a bill</b><small>Photo or PDF, on-device OCR</small></button>
-      <button class="tile" onclick="go('rep')">📊<b>View reports</b><small>Insights &amp; trends</small></button>
-      <button class="tile" onclick="go('price')">🏷️<b>Price tracker</b><small>See price changes</small></button>
-      <button class="tile" onclick="go('bills')">🔔<b>Bills &amp; EMIs</b><small>Rent, EB, mobile &amp; more</small></button>
-      <button class="tile" onclick="go('prod')">🛒<b>My products</b><small>Add custom items</small></button></div>
+      <div class="tiles">
+        <button class="tile" onclick="go('add')">➕<b>Add purchase</b><small>Log item manually</small></button>
+        <button class="tile" onclick="go('bill')">📷<b>Scan a bill</b><small>Auto OCR & multi-item verification</small></button>
+        <button class="tile" onclick="go('rep')">📊<b>View reports</b><small>Insights &amp; trends</small></button>
+        <button class="tile" onclick="go('price')">🏷️<b>Price tracker</b><small>Price fluctuation</small></button>
+        <button class="tile" onclick="go('bills')">🔔<b>Bills &amp; EMIs</b><small>Reminders & tracking</small></button>
+        <button class="tile" onclick="go('prod')">🛒<b>My products</b><small>Custom list</small></button>
+      </div>
       <div class="head"><b>Recent purchases</b><button class="link" onclick="go('hist')">View all</button></div>
       <div class="card">${S.items.length ? [...S.items].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 5).map(row).join("") : empty("No purchases yet. Tap + to add your first one.")}</div>${gcard()}`;
     }
 
+    // --- History Screen (With Edit & Delete Support) ---
     function hist() {
       const it = inMo(mo);
-      return `<h1>Purchase history</h1>${mnav()}<div class="card"><small>Total this month</small><div style="font-size:22px;font-weight:700">${fm(sum(it))}</div></div>
-      <div class="card">${it.length ? it.map(i => `<div class="row"><span class="em">${emo(i.name)}</span><div class="g"><b>${esc(i.name)}</b><small>${i.qty} ${i.unit} · ${fm(i.price)}/${i.unit} · ${df(i.date)}${i.store ? " · " + esc(i.store) : ""}${i.pay ? " · " + esc(i.pay) : ""}</small>${i.notes ? `<br><small>${esc(i.notes)}</small>` : ""}</div><div class="r"><b>${fm(i.total)}</b></div><button class="del" aria-label="Delete" onclick="del(${i.id})">✕</button></div>`).join("") : empty("No purchases in this month.")}</div>`;
+      return `<h1>Purchase history</h1>${mnav()}
+      <div class="card"><small>Total this month</small><div style="font-size:22px;font-weight:700">${fm(sum(it))}</div></div>
+      <div class="card">${it.length ? it.map(i => `
+        <div class="row">
+          <span class="em">${emo(i.name)}</span>
+          <div class="g">
+            <b>${esc(i.name)}</b>
+            <small>${i.qty} ${i.unit} · ${fm(i.price)}/${i.unit} · ${df(i.date)}${i.store ? " · " + esc(i.store) : ""}${i.pay ? " · " + esc(i.pay) : ""}</small>
+            ${i.notes ? `<br><small>${esc(i.notes)}</small>` : ""}
+          </div>
+          <div class="r">
+            <b>${fm(i.total)}</b>
+            <div style="margin-top:4px">
+              <button class="link" style="font-size:12px;margin-right:8px" onclick="editItem(${i.id})">Edit</button>
+              <button class="del" aria-label="Delete" onclick="del(${i.id})">✕</button>
+            </div>
+          </div>
+        </div>`).join("") : empty("No purchases in this month.")}</div>`;
     }
 
     function del(id) {
@@ -409,23 +463,91 @@
       go("hist");
     }
 
+    function editItem(id) {
+      editId = id;
+      go("edit");
+    }
+
+    function edit() {
+      const item = S.items.find(i => i.id == editId);
+      if (!item) return go("hist");
+      return `<h1>Edit purchase</h1>
+      <div class="card">
+        <label style="margin-top:0">Product</label>
+        <input id="enm" value="${esc(item.name)}" maxlength="40">
+        <label>Category</label>
+        <select id="ect">${opts(Object.keys(AllC()), item.cat)}</select>
+        <label>Store</label>
+        <input id="esto" value="${esc(item.store || "")}" maxlength="40">
+        <label>Quantity & Unit</label>
+        <div class="f">
+          <input id="eq" type="number" inputmode="decimal" min="0" step="any" value="${item.qty}" oninput="eTot()">
+          <select id="eu" onchange="eTot()">${opts(UN, item.unit)}</select>
+        </div>
+        <label>Price per unit (₹)</label>
+        <input id="epr" type="number" inputmode="decimal" min="0" step="any" value="${item.price}" oninput="eTot()">
+        <label>Date</label>
+        <input id="edt" type="date" value="${item.date}">
+        <label>Payment mode</label>
+        <select id="epm">${opts(["Cash", "UPI", "Card"], item.pay || "Cash")}</select>
+        <label>Notes</label>
+        <input id="ent" maxlength="80" value="${esc(item.notes || "")}">
+        <div class="total"><span>Total amount</span><span id="ett">${fm(item.total)}</span></div>
+        <div class="err" id="eerr"></div>
+        <button class="btn" onclick="saveEdit()">Save changes</button>
+        <button class="link" style="display:block;margin:12px auto 0" onclick="go('hist')">Cancel</button>
+      </div>`;
+    }
+
+    function eTot() {
+      const q = +$("#eq").value || 0, p = +$("#epr").value || 0;
+      $("#ett").textContent = fm(q * p);
+    }
+
+    function saveEdit() {
+      const item = S.items.find(i => i.id == editId);
+      if (!item) return go("hist");
+      const name = $("#enm").value.trim(), qty = +$("#eq").value, price = +$("#epr").value, date = $("#edt").value;
+      if (!name || !(qty > 0) || !(price >= 0) || !date) {
+        $("#eerr").textContent = "Fill in a valid name, quantity > 0, price, and date.";
+        return;
+      }
+      item.name = name;
+      item.cat = $("#ect").value;
+      item.store = $("#esto").value.trim();
+      item.qty = qty;
+      item.unit = $("#eu").value;
+      item.price = price;
+      item.total = qty * price;
+      item.date = date;
+      item.pay = $("#epm").value;
+      item.notes = $("#ent").value.trim();
+      save();
+      mo = date.slice(0, 7);
+      editId = null;
+      go("hist");
+    }
+
+    // --- Manual Add Screen ---
     function add() {
-      const sg = scanGuess;
-      scanGuess = null;
       return `<h1>Add purchase</h1>
-      <button class="tile" style="width:100%;margin-bottom:12px" onclick="go('scan')">📷<b>Scan a grocery bill instead</b><small>Read items directly from a photo</small></button>
-      ${scanImg ? `<div class="card"><div class="head"><b>Verify against your bill</b><button class="link" onclick="scanImg=null;go('add')">Remove</button></div><img src="${scanImg}" style="max-width:100%;border-radius:10px"><small style="display:block;margin-top:6px">Check the read amounts below before saving.</small></div>` : ""}
-      <div class="head"><b>Choose a product</b><button class="link" onclick="go('prod')">Add custom product</button></div><div class="chips">${allP().map((p, i) => `<button class="chip" onclick="pick(${i})"><span>${p[1]}</span>${p[0]}</button>`).join("")}</div>
-      <div class="card"><label style="margin-top:0">Product</label><input id="nm" value="${sg && sg.merchant ? esc(sg.merchant) : ""}" placeholder="Pick above or type a name" maxlength="40">
-      <label>Category</label><select id="ct">${Object.keys(AllC()).map(c => `<option>${c}</option>`).join("")}</select>
-      <label>Store</label><input id="sto" list="stl" maxlength="40" placeholder="e.g. Big Bazaar"><datalist id="stl">${[...new Set(S.items.map(i => i.store).filter(Boolean))].map(x => `<option value="${esc(x)}">`).join("")}</datalist>
-      <label>Quantity</label><div class="f"><input id="q" type="number" inputmode="decimal" value="1" min="0" step="any" oninput="tot()"><select id="u"><option>kg</option><option>g</option><option>L</option><option>ml</option><option>pcs</option></select></div>
-      <label>Price per unit (₹)</label><input id="pr" type="number" inputmode="decimal" value="${sg && sg.amount ? sg.amount : ""}" min="0" step="any" oninput="tot()" placeholder="e.g. 40">
-      <label>Date</label><input id="dt" type="date" value="${sg && sg.date ? sg.date : today()}">
-      <label>Payment mode</label><select id="pm"><option>Cash</option><option>UPI</option><option>Card</option></select>
-      <label>Notes (optional)</label><input id="nt" maxlength="80" value="${scanImg ? "Scanned from bill" : ""}" placeholder="e.g. Fresh and good quality">
-      <div class="total"><span>Total amount</span><span id="tt">${fm(sg && sg.amount ? sg.amount : 0)}</span></div><div class="err" id="err"></div>
-      <button class="btn" onclick="addP()">Save purchase</button></div>`;
+      <button class="tile" style="width:100%;margin-bottom:12px" onclick="go('bill')">📷<b>Scan a grocery bill instead</b><small>Scan, verify total & add multiple items</small></button>
+      <div class="head"><b>Choose a product</b><button class="link" onclick="go('prod')">Add custom product</button></div>
+      <div class="chips">${allP().map((p, i) => `<button class="chip" onclick="pick(${i})"><span>${p[1]}</span>${p[0]}</button>`).join("")}</div>
+      <div class="card">
+        <label style="margin-top:0">Product</label><input id="nm" placeholder="Pick above or type name" maxlength="40">
+        <label>Category</label><select id="ct">${opts(Object.keys(AllC()), "Grocery")}</select>
+        <label>Store</label><input id="sto" list="stl" maxlength="40" placeholder="e.g. Reliance Smart"><datalist id="stl">${[...new Set(S.items.map(i => i.store).filter(Boolean))].map(x => `<option value="${esc(x)}">`).join("")}</datalist>
+        <label>Quantity</label>
+        <div class="f"><input id="q" type="number" inputmode="decimal" value="1" min="0" step="any" oninput="tot()"><select id="u">${opts(UN, "kg")}</select></div>
+        <label>Price per unit (₹)</label><input id="pr" type="number" inputmode="decimal" min="0" step="any" oninput="tot()" placeholder="e.g. 40">
+        <label>Date</label><input id="dt" type="date" value="${today()}">
+        <label>Payment mode</label><select id="pm">${opts(["Cash", "UPI", "Card"], "UPI")}</select>
+        <label>Notes (optional)</label><input id="nt" maxlength="80" placeholder="e.g. Grocery run">
+        <div class="total"><span>Total amount</span><span id="tt">₹0</span></div>
+        <div class="err" id="err"></div>
+        <button class="btn" onclick="addP()">Save purchase</button>
+      </div>`;
     }
 
     function pick(i) {
@@ -443,7 +565,7 @@
     function addP() {
       const g = id => $("#" + id).value, name = g("nm").trim(), qty = +g("q"), price = +g("pr");
       if (!name || !(qty > 0) || g("pr") === "" || !(price >= 0) || !g("dt")) {
-        $("#err").textContent = "Enter a product, a quantity above 0, a price and a date.";
+        $("#err").textContent = "Enter a product, a quantity > 0, price, and date.";
         return;
       }
       S.items.push({
@@ -460,25 +582,24 @@
         notes: g("nt").trim()
       });
       save();
-      scanImg = null;
       mo = g("dt").slice(0, 7);
       go("hist");
     }
 
-    // --- On-Device OCR Bill Scanning ---
-    function imgToCanvas(file) {
-      return new Promise((res, rej) => {
-        const img = new Image(), url = URL.createObjectURL(file);
-        img.onload = () => {
-          const sc = Math.min(1, 1400 / img.width), c = document.createElement("canvas");
-          c.width = Math.round(img.width * sc);
-          c.height = Math.round(img.height * sc);
-          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-          URL.revokeObjectURL(url);
-          res(c);
+    // --- Pure Client-Side OCR & Comprehensive Bill Processing ---
+    function shrink(f) {
+      return new Promise((ok, no) => {
+        const u = URL.createObjectURL(f), im = new Image();
+        im.onload = () => {
+          const m = 1800, r = Math.min(1, m / Math.max(im.width, im.height)), c = document.createElement("canvas");
+          c.width = Math.round(im.width * r);
+          c.height = Math.round(im.height * r);
+          c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(u);
+          ok(c);
         };
-        img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("img")); };
-        img.src = url;
+        im.onerror = () => { URL.revokeObjectURL(u); no(new Error("Image render failed")); };
+        im.src = u;
       });
     }
 
@@ -492,7 +613,7 @@
           window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js";
           res();
         };
-        s.onerror = () => rej(new Error("pdfjs"));
+        s.onerror = () => rej(new Error("PDF engine failed to load"));
         document.head.appendChild(s);
       });
       return pdfjsReady;
@@ -503,7 +624,7 @@
       const buf = await file.arrayBuffer();
       const doc = await window.pdfjsLib.getDocument({ data: buf }).promise;
       const page = await doc.getPage(1);
-      const vp0 = page.getViewport({ scale: 1 }), scale = Math.min(2, 1400 / vp0.width), vp = page.getViewport({ scale });
+      const vp0 = page.getViewport({ scale: 1 }), scale = Math.min(2, 1600 / vp0.width), vp = page.getViewport({ scale });
       const c = document.createElement("canvas");
       c.width = vp.width;
       c.height = vp.height;
@@ -518,98 +639,288 @@
         const s = document.createElement("script");
         s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
         s.onload = () => res();
-        s.onerror = () => rej(new Error("tesseract"));
+        s.onerror = () => rej(new Error("OCR engine failed to load"));
         document.head.appendChild(s);
       });
       return tessReady;
     }
 
-    async function ocrText(canvas, statusEl) {
+    async function localOcr(canvas, statusCb) {
       await loadTess();
       const r = await window.Tesseract.recognize(canvas, "eng", {
         logger: m => {
-          if (statusEl && m.status) statusEl.innerHTML = "<small>" + m.status + (m.progress ? " " + Math.round(m.progress * 100) + "%" : "") + "</small>";
+          if (statusCb && m.status) statusCb(`${m.status} ${m.progress ? Math.round(m.progress * 100) + "%" : ""}`);
         }
       });
       return (r && r.data && r.data.text) || "";
     }
 
-    function parseBill(text) {
-      const lines = text.split("\n").map(s => s.trim()).filter(Boolean);
-      const re = /(?:rs\.?|inr|₹)?\s*([0-9][0-9,]*\.?[0-9]{0,2})/gi;
-      const nums = [];
-      lines.forEach(l => {
-        if (/total|amount|grand|net|balance due|bill amt|bill amount/i.test(l)) {
-          let m, best = null;
-          re.lastIndex = 0;
-          while ((m = re.exec(l))) {
-            const vv = parseFloat(m[1].replace(/,/g, ""));
-            if (!isNaN(vv) && vv > 0) best = vv;
-          }
-          if (best != null) nums.push({ v: best, w: 3 });
+    // Convert unstructured receipt text to verified JSON model
+    function parseOcrTextToJson(rawText) {
+      const lines = rawText.split("\n").map(l => l.trim()).filter(Boolean);
+
+      // 1. Detect store name
+      let store = "";
+      const storeCandidate = lines.find(l => l.length > 2 && l.length < 35 && !/tax|invoice|bill|receipt|date|cash|total|gst/i.test(l) && !/^\d/.test(l));
+      if (storeCandidate) store = storeCandidate;
+
+      // 2. Detect date
+      let date = today();
+      const dMatch = rawText.match(/([0-3]?\d)[\/\-.]([01]?\d)[\/\-.]((?:20)?\d\d)/);
+      if (dMatch) {
+        let dd = +dMatch[1], mm = +dMatch[2], yy = +dMatch[3];
+        if (yy < 100) yy += 2000;
+        if (dd >= 1 && dd <= 31 && mm >= 1 && mm <= 12) {
+          date = `${yy}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
         }
-      });
-      if (!nums.length) {
-        lines.forEach(l => {
-          let m, best = null;
-          re.lastIndex = 0;
-          while ((m = re.exec(l))) {
-            const vv = parseFloat(m[1].replace(/,/g, ""));
-            if (!isNaN(vv) && vv > 0 && vv < 1000000) best = vv;
-          }
-          if (best != null) nums.push({ v: best, w: 1 });
-        });
       }
-      nums.sort((a, b) => b.w - a.w || b.v - a.v);
-      const amount = nums.length ? nums[0].v : null;
-      let date = null;
-      const dre = /([0-3]?\d)[\/\-.]([01]?\d)[\/\-.]((?:20)?\d\d)/;
-      for (const l of lines) {
-        const m = l.match(dre);
-        if (m) {
-          let d = +m[1], mo2 = +m[2], yy = +m[3];
-          if (yy < 100) yy += 2000;
-          if (d >= 1 && d <= 31 && mo2 >= 1 && mo2 <= 12) {
-            date = yy + "-" + String(mo2).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+
+      // 3. Detect printed bill total
+      let billTotal = 0;
+      const totalRegex = /(?:total|grand|net|balance due|bill amount|amount payable)[^\d\n]*([0-9,]+\.?[0-9]{0,2})/i;
+      const tMatch = rawText.match(totalRegex);
+      if (tMatch) {
+        billTotal = parseFloat(tMatch[1].replace(/,/g, "")) || 0;
+      }
+
+      // 4. Line items parsing (unit, quantity, rate, amount)
+      const items = [];
+      const unitRegex = /(\d+(?:\.\d+)?)\s*(kg|g|gm|gms|l|ltr|ltrs|ml|pcs|pc|nos|pkt|packet)/i;
+      const priceRegex = /(?:rs\.?|inr|₹)?\s*(\d+[.,]\d{2}|\d+)(?:\s|$)/i;
+
+      for (let line of lines) {
+        if (/total|grand|net|cgst|sgst|tax|discount|round off|subtotal|change/i.test(line)) continue;
+        if (line.length < 3) continue;
+
+        let detectedQty = 1, detectedUnit = "pcs";
+        const uMatch = line.match(unitRegex);
+        if (uMatch) {
+          detectedQty = parseFloat(uMatch[1]) || 1;
+          const uStr = uMatch[2].toLowerCase();
+          if (uStr.startsWith("kg")) detectedUnit = "kg";
+          else if (uStr.startsWith("g")) detectedUnit = "g";
+          else if (uStr.startsWith("l")) detectedUnit = "L";
+          else if (uStr.startsWith("ml")) detectedUnit = "ml";
+          else detectedUnit = "pcs";
+        }
+
+        // Search for numbers formatted as prices on the right
+        const words = line.split(/\s+/);
+        let amount = NaN;
+        for (let j = words.length - 1; j >= 0; j--) {
+          const clean = words[j].replace(/[^0-9.]/g, "");
+          const val = parseFloat(clean);
+          if (!isNaN(val) && val > 0 && val < 500000) {
+            amount = val;
             break;
           }
         }
+
+        if (!isNaN(amount) && amount > 0) {
+          // Clean product name
+          let cleanName = line
+            .replace(unitRegex, "")
+            .replace(/[0-9.,]+$/g, "")
+            .replace(/[@#₹$*]/g, "")
+            .trim();
+          if (cleanName.length > 2 && cleanName.length < 35 && !/total/i.test(cleanName)) {
+            // Find closest category match
+            let matchedCat = "Grocery";
+            const known = allP().find(p => cleanName.toLowerCase().includes(p[0].toLowerCase()));
+            if (known) matchedCat = known[2];
+
+            items.push({
+              name: cleanName,
+              qty: detectedQty,
+              unit: detectedUnit,
+              amount: amount,
+              cat: matchedCat,
+              on: true
+            });
+          }
+        }
       }
-      const merchant = lines.find(l => l.length > 2 && l.length < 40 && !/^\d/.test(l) && !dre.test(l)) || "";
-      return { amount, date, merchant };
+
+      return {
+        store: store,
+        date: date,
+        pay: /upi|gpay|phonepe/i.test(rawText) ? "UPI" : /card|pos/i.test(rawText) ? "Card" : "Cash",
+        total: billTotal,
+        items: items
+      };
     }
 
-    async function onBillFile(file) {
+    async function handleBillUpload(file) {
       if (!file) return;
-      const st = $("#scanStatus");
-      st.innerHTML = "<small>Processing receipt image…</small>";
+      B = { busy: true, status: "Preparing image..." };
+      go("bill");
       try {
-        const canvas = file.type == "application/pdf" ? await pdfToCanvas(file) : await imgToCanvas(file);
-        scanImg = canvas.toDataURL("image/jpeg", 0.85);
-        if ($("#scanPrev")) $("#scanPrev").innerHTML = `<img src="${scanImg}" style="max-width:100%;border-radius:10px;margin-top:8px">`;
-        let text = "";
-        try { text = await ocrText(canvas, st); } catch (e) {}
-        scanGuess = text ? parseBill(text) : {};
-        if ($("#scanStatus")) $("#scanStatus").innerHTML = text ? "<small>Parsed successfully — check values on the form.</small>" : "<small>Could not auto-read text — enter manually.</small>";
-        setTimeout(() => go("add"), 500);
-      } catch (e) {
-        if ($("#scanStatus")) $("#scanStatus").innerHTML = "<small>Couldn't process that file. Try a clearer photo or PDF.</small>";
+        let canvas;
+        if (file.type === "application/pdf") {
+          canvas = await pdfToCanvas(file);
+        } else {
+          canvas = await shrink(file);
+        }
+        B.img = canvas.toDataURL("image/jpeg", 0.85);
+        const text = await localOcr(canvas, st => {
+          B.status = st;
+          const el = $("#bstatus");
+          if (el) el.textContent = st;
+        });
+
+        const parsedJson = parseOcrTextToJson(text);
+        B.busy = false;
+        B.store = parsedJson.store;
+        B.date = parsedJson.date;
+        B.pay = parsedJson.pay;
+        B.total = parsedJson.total;
+        B.items = parsedJson.items;
+        B.rawJson = JSON.stringify(parsedJson, null, 2);
+        go("bill");
+        bt();
+      } catch (err) {
+        B = { busy: false, err: "Failed to read receipt: " + err.message };
+        go("bill");
       }
     }
 
-    function scan() {
-      return `<h1>Scan a bill</h1><div class="card">
-      <label style="margin-top:0">Upload Photo or PDF Receipt</label>
-      <input type="file" accept="image/*,application/pdf" onchange="onBillFile(this.files[0])">
-      <div id="scanStatus" style="margin-top:8px"><small>Select a clear bill photo or PDF. Amount and date will be recognized locally on your device.</small></div>
-      <div id="scanPrev"></div>
-      </div>`;
+    function bill() {
+      const up = `
+        <label class="btn upl" for="bf">📷 ${B && B.items ? "Scan another bill" : "Take or upload bill photo"}</label>
+        <input id="bf" type="file" accept="image/*,application/pdf" hidden onchange="handleBillUpload(this.files[0]);this.value=''">`;
+
+      if (!B || !B.items) {
+        return `<h1>Scan a bill</h1>
+        <div class="card">
+          <small>Take a clear photo of your receipt. OCR will parse the store, date, items, units, and totals directly in your browser.</small>
+          ${up}
+          ${B && B.busy ? `<div class="empty"><b id="bstatus">${esc(B.status || "Reading image...")}</b><br><small>This runs locally and takes a few seconds.</small></div>` : ""}
+          ${B && B.err ? `<div class="warn">${esc(B.err)}</div>` : ""}
+        </div>
+        <button class="link" onclick="go('add')">Add by hand instead</button>`;
+      }
+
+      return `<h1>Verify scanned bill</h1>
+      <div class="card">
+        <small>Review items, normalized rates, and ensure the individual sum matches the printed bill total.</small>
+        ${B.img ? `<img class="thumb" src="${B.img}" alt="Receipt">` : ""}
+        <label>Store Name</label>
+        <input maxlength="40" value="${esc(B.store || "")}" placeholder="Store name" oninput="B.store=this.value">
+        <div class="f">
+          <div><label>Date</label><input type="date" value="${B.date}" oninput="B.date=this.value"></div>
+          <div><label>Payment</label><select onchange="B.pay=this.value">${opts(["Cash", "UPI", "Card"], B.pay)}</select></div>
+        </div>
+        <details style="margin-top:8px">
+          <summary style="font-size:12px;color:var(--mute);cursor:pointer">View Generated JSON</summary>
+          <div class="json-box">${esc(B.rawJson || "")}</div>
+        </details>
+      </div>
+
+      <div class="card">
+        <div class="head"><b>Scanned Items</b><small id="bn"></small></div>
+        ${B.items.map((i, k) => `
+          <div class="bi ${i.on ? "" : "off"}" id="bi${k}">
+            <div class="f" style="align-items:center">
+              <input type="checkbox" style="width:auto;flex:none" ${i.on ? "checked" : ""} aria-label="Include" onchange="bs(${k},'on',this.checked);$('#bi${k}').classList.toggle('off',!this.checked)">
+              <span class="em" style="flex:none">${emo(i.name)}</span>
+              <input maxlength="40" value="${esc(i.name)}" placeholder="Item name" aria-label="Product" oninput="bs(${k},'name',this.value)">
+              <button class="del" style="flex:none" aria-label="Remove" onclick="B.items.splice(${k},1);go('bill')">✕</button>
+            </div>
+            <div class="f">
+              <input type="number" inputmode="decimal" min="0" step="any" value="${i.qty}" placeholder="Qty/Weight" aria-label="Quantity" oninput="bs(${k},'qty',+this.value)">
+              <select aria-label="Unit" onchange="bs(${k},'unit',this.value)">${opts(UN, i.unit)}</select>
+              <input type="number" inputmode="decimal" min="0" step="any" value="${i.amount}" placeholder="Amount (₹)" aria-label="Amount" oninput="bs(${k},'amount',this.value===''?NaN:+this.value)">
+            </div>
+            <div class="f" style="align-items:center">
+              <select aria-label="Category" onchange="bs(${k},'cat',this.value)">${opts(Object.keys(AllC()), i.cat)}</select>
+              <small id="bu${k}" style="text-align:right;font-weight:600"></small>
+            </div>
+          </div>
+        `).join("") || empty("No items detected. Add one manually below.")}
+        <button class="link" style="margin-top:10px" onclick="B.items.push({name:'',qty:1,unit:'pcs',amount:NaN,cat:'Grocery',on:true});go('bill')">+ Add missing line item</button>
+      </div>
+
+      <div class="card">
+        <label style="margin-top:0">Total printed on receipt (₹)</label>
+        <input type="number" inputmode="decimal" min="0" step="any" value="${B.total || ""}" placeholder="Printed grand total" oninput="B.total=+this.value||0;bt()">
+        <div class="total"><span>Sum of selected items</span><span id="bsum">₹0.00</span></div>
+        <div id="bchk"></div>
+        <div class="err" id="berr"></div>
+        <button class="btn" id="badd" onclick="addBatchBill()">Add to spending</button>
+        <button class="link" style="display:block;margin:12px auto 0" onclick="B=null;go('bill')">Discard bill</button>
+      </div>
+      ${up}`;
     }
 
-    function freshAdd() {
-      scanImg = null;
-      scanGuess = null;
-      go("add");
+    function bs(k, f, x) {
+      B.items[k][f] = x;
+      bt();
+    }
+
+    function bt() {
+      if (!B || !B.items || !$("#bsum")) return;
+      const on = B.items.filter(i => i.on);
+      const t = on.reduce((s, i) => s + (+i.amount || 0), 0);
+
+      B.items.forEach((i, k) => {
+        const e = $("#bu" + k);
+        if (e) {
+          e.textContent = i.qty > 0 && i.amount >= 0 ? `${fm(i.amount / i.qty)} / ${i.unit}` : "";
+        }
+      });
+
+      $("#bsum").textContent = fm(t);
+      $("#bn").textContent = `${on.length} of ${B.items.length} selected`;
+      $("#badd").textContent = `Add ${on.length} item${on.length === 1 ? "" : "s"} to spending`;
+
+      const diff = B.total ? +(t - B.total).toFixed(2) : 0;
+      if (!B.total) {
+        $("#bchk").innerHTML = `<div class="warn">Enter the printed bill total above to verify individual items.</div>`;
+      } else if (Math.abs(diff) <= 0.5) {
+        $("#bchk").innerHTML = `<div class="warn ok">✓ Match verified: Sum of items equals printed bill total (${fm(B.total)})</div>`;
+      } else {
+        $("#bchk").innerHTML = `<div class="warn"><b>Total Mismatch:</b> Items total is ${diff < 0 ? fm(-diff) + " less" : fm(diff) + " more"} than the printed bill total (${fm(B.total)}). Check for missed items, tax, discounts, or quantity errors.</div>`;
+      }
+    }
+
+    function addBatchBill() {
+      const on = B.items.filter(i => i.on);
+      if (!on.length) { $("#berr").textContent = "Select at least one item."; return; }
+      if (!B.date) { $("#berr").textContent = "Please enter the bill date."; return; }
+      if (on.some(i => !String(i.name).trim() || !(i.qty > 0) || !(i.amount >= 0))) {
+        $("#berr").textContent = "Every selected item requires a valid name, quantity > 0, and amount.";
+        return;
+      }
+
+      // Check total mismatch validation
+      const t = on.reduce((s, i) => s + (+i.amount || 0), 0);
+      if (B.total && Math.abs(t - B.total) > 1) {
+        if (!confirm(`Warning: The items total (${fm(t)}) does not match the printed bill total (${fm(B.total)}). Do you still want to save these items?`)) {
+          return;
+        }
+      }
+
+      const id = Date.now();
+      on.forEach((i, k) => {
+        S.items.push({
+          id: id + k,
+          name: i.name.trim(),
+          cat: i.cat,
+          qty: i.qty,
+          unit: i.unit,
+          price: +(i.amount / i.qty).toFixed(2),
+          total: +i.amount,
+          date: B.date,
+          pay: B.pay,
+          store: (B.store || "").trim(),
+          notes: "Scanned from bill"
+        });
+      });
+
+      save();
+      mo = B.date.slice(0, 7);
+      B = null;
+      go("hist");
     }
 
     // --- Price Tracker ---
@@ -621,7 +932,7 @@
 
     function price() {
       const names = [...new Set(S.items.map(i => i.name))].sort();
-      if (!names.length) return `<h1>Price tracker</h1>${empty("Add a few purchases to see price variations across stores and time.")}`;
+      if (!names.length) return `<h1>Price tracker</h1>${empty("Add purchases to compare price trends across stores.")}`;
       if (!names.includes(sel)) sel = names[0];
       const raw = S.items.filter(i => i.name == sel).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id), u = nz(raw[raw.length - 1]).u;
       const it = raw.map(i => ({ ...i, ...nz(i) })).filter(i => i.u == u), stores = [...new Set(it.map(sn))];
@@ -631,23 +942,23 @@
       const ps = pts.map(i => i.p), mx = Math.max(...ps), mn = Math.min(...ps), avg = ps.reduce((a, b) => a + b, 0) / ps.length;
       const ch = prev && prev.p ? ((last.p - prev.p) / prev.p) * 100 : null;
       const t0 = +new Date(pts[0].date), t1 = +new Date(last.date), rg = mx - mn || 1, X = d => t1 == t0 ? 160 : 36 + ((new Date(d) - t0) / (t1 - t0)) * 250, Y = p => 92 - ((p - mn) / rg) * 66;
-      const svg = `<svg viewBox="0 0 310 125" width="100%" role="img" aria-label="Price history by store"><text x="30" y="${Y(mx) + 3}" text-anchor="end">${+mx.toFixed(1)}</text><text x="30" y="${Y(mn) + 3}" text-anchor="end">${+mn.toFixed(1)}</text><line x1="34" x2="300" y1="${Y(mx)}" y2="${Y(mx)}" stroke="var(--line)"/><line x1="34" x2="300" y1="${Y(mn)}" y2="${Y(mn)}" stroke="var(--line)"/>${stores.filter(x => shown.includes(x)).map(x => { const c = SC[stores.indexOf(x) % 6], a = pts.filter(i => sn(i) == x); return (a.length > 1 ? `<polyline points="${a.map(i => X(i.date) + "," + Y(i.p)).join(" ")}" fill="none" stroke="${c}" stroke-width="2.5"/>` : "") + a.map(i => `<circle cx="${X(i.date)}" cy="${Y(i.p)}" r="3.5" fill="${c}"><title>${esc(x)} ·${df(i.date)} · ${fm(i.p)}/${u}</title></circle>`).join(""); }).join("")}<text x="36" y="118">${df(pts[0].date)}</text><text x="300" y="118" text-anchor="end">${df(last.date)}</text></svg>`;
+      const svg = `<svg viewBox="0 0 310 125" width="100%" role="img" aria-label="Price history by store"><text x="30" y="${Y(mx) + 3}" text-anchor="end">${+mx.toFixed(1)}</text><text x="30" y="${Y(mn) + 3}" text-anchor="end">${+mn.toFixed(1)}</text><line x1="34" x2="300" y1="${Y(mx)}" y2="${Y(mx)}" stroke="var(--line)"/><line x1="34" x2="300" y1="${Y(mn)}" y2="${Y(mn)}" stroke="var(--line)"/>${stores.filter(x => shown.includes(x)).map(x => { const c = SC[stores.indexOf(x) % 6], a = pts.filter(i => sn(i) == x); return (a.length > 1 ? `<polyline points="${a.map(i => X(i.date) + "," + Y(i.p)).join(" ")}" fill="none" stroke="${c}" stroke-width="2.5"/>` : "") + a.map(i => `<circle cx="${X(i.date)}" cy="${Y(i.p)}" r="3.5" fill="${c}"><title>${esc(x)} · ${df(i.date)} · ${fm(i.p)}/${u}</title></circle>`).join(""); }).join("")}<text x="36" y="118">${df(pts[0].date)}</text><text x="300" y="118" text-anchor="end">${df(last.date)}</text></svg>`;
       const st = stores.map(x => { const a = it.filter(i => sn(i) == x); return { s: x, l: a[a.length - 1].p, avg: a.reduce((q, i) => q + i.p, 0) / a.length, lo: Math.min(...a.map(i => i.p)), n: a.length }; }).sort((a, b) => a.l - b.l);
 
       return `<h1>Price tracker</h1><select onchange="sel=this.value;stf='all';go('price')" aria-label="Product">${names.map(n => `<option ${n == sel ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0"><button class="pill ${stf == "all" ? "on" : ""}" onclick="pf(-1)">All stores</button>${stores.map((x, k) => `<button class="pill ${stf == x ? "on" : ""}" onclick="pf(${k})">${esc(x)}</button>`).join("")}</div>
       <div class="card"><div class="head"><span style="font-size:30px">${emo(sel)}</span>${ch === null ? "" : `<span class="${ch > 0 ? "up" : "dn"}">${ch > 0 ? "▲ +" : "▼ "}${ch.toFixed(1)}% vs previous buy</span>`}</div>
       <div class="two"><div><small>Latest</small><br><b>${fm(last.p)}/${u}</b></div><div><small>Lowest</small><br><b>${fm(mn)}</b></div><div><small>Average</small><br><b>${fm(avg)}</b></div><div style="text-align:right"><small>Highest</small><br><b>${fm(mx)}</b></div></div></div>
-      <div class="card"><b>Price per ${u}</b>${pts.length > 1 ? svg : empty("Log this again to view graph.")}${stores.length > 1 && stf == "all" ? `<div style="display:flex;gap:12px;flex-wrap:wrap">${stores.map((x, k) => `<div class="leg"><i style="background:${SC[k % 6]}"></i>${esc(x)}</div>`).join("")}</div>` : ""}</div>
+      <div class="card"><b>Price per ${u}</b>${pts.length > 1 ? svg : empty("Log this again to view comparison graph.")}${stores.length > 1 && stf == "all" ? `<div style="display:flex;gap:12px;flex-wrap:wrap">${stores.map((x, k) => `<div class="leg"><i style="background:${SC[k % 6]}"></i>${esc(x)}</div>`).join("")}</div>` : ""}</div>
       <div class="card"><b>Store comparison</b> <small>latest price per ${u}</small>${stores.length > 1 ? st.map((x, k) => `<div class="row"><i style="width:10px;height:10px;border-radius:3px;background:${SC[stores.indexOf(x.s) % 6]}"></i><div class="g"><b>${esc(x.s)}</b><small>Avg ${fm(x.avg)} · Low ${fm(x.lo)} · ${x.n} buy${x.n > 1 ? "s" : ""}</small></div><div class="r"><b>${fm(x.l)}</b><small class="${k ? "up" : "dn"}">${k ? "+" + fm(x.l - st[0].l) + " vs cheapest" : "Cheapest"}</small></div></div>`).join("") : empty("Log from multiple stores to compare.")}</div>
       <div class="card"><b>Previous purchases</b>${[...pts].reverse().map(i => `<div class="row"><div class="g">${df(i.date)}<br><small>${esc(sn(i))}</small></div><b>${fm(i.p)}/${u}</b></div>`).join("")}</div>`;
     }
 
-    // --- Products ---
+    // --- Product Catalog Screen ---
     function prod() {
       return `<h1>My products</h1><div class="card"><label style="margin-top:0">Product name</label><input id="pn" maxlength="40" placeholder="e.g. Idli batter">
-      <div class="f"><div><label>Emoji</label><input id="pe" value="🛒" maxlength="4"></div><div><label>Default unit</label><select id="pu"><option>kg</option><option>g</option><option>L</option><option>ml</option><option>pcs</option></select></div></div>
-      <label>Category</label><select id="pc">${Object.keys(AllC()).map(c => `<option>${c}</option>`).join("")}</select><div class="err" id="perr"></div><button class="btn" onclick="addProd()">Save product</button></div>
+      <div class="f"><div><label>Emoji</label><input id="pe" value="🛒" maxlength="4"></div><div><label>Default unit</label><select id="pu">${opts(UN, "kg")}</select></div></div>
+      <label>Category</label><select id="pc">${opts(Object.keys(AllC()), "Grocery")}</select><div class="err" id="perr"></div><button class="btn" onclick="addProd()">Save product</button></div>
       <div class="card"><b>Your custom products</b>${S.prods.length ? S.prods.map((p, k) => `<div class="row"><span class="em">${esc(p.emo)}</span><div class="g"><b>${esc(p.name)}</b><small>${p.cat} · per ${p.unit}</small></div><button class="del" aria-label="Delete" onclick="delProd(${k})">✕</button></div>`).join("") : empty("No custom products added yet.")}</div>
       <button class="link" onclick="go('add')">Back to add purchase</button>`;
     }
@@ -669,7 +980,7 @@
       go("prod");
     }
 
-    // --- Reports ---
+    // --- Reports Screen ---
     function periodRange(type, anchor) {
       const d = new Date(anchor + "T00:00");
       if (type == "day") return [anchor, anchor];
@@ -780,7 +1091,7 @@
       <div class="card"><b>Spending over time</b><svg viewBox="0 0 290 115" width="100%" role="img" aria-label="Spending over time">${bars}</svg></div>`;
     }
 
-    // --- Recurring Bills & Subscriptions ---
+    // --- Recurring Bills & EMIs ---
     function paidToday(b) {
       return S.items.some(i => i.date == today() && i.name == b.name && i.cat == b.category);
     }
@@ -844,7 +1155,7 @@
         date: today(),
         pay: "",
         store: "",
-        notes: "Recurring payment"
+        notes: "Recurring commitment"
       });
       save();
       go(v);
@@ -876,7 +1187,7 @@
       return `<h1>Bills &amp; EMIs</h1>
       <div class="card"><div class="head"><b>Reminders</b>${notifSupported ? (notifOn ? `<small>Active</small>` : `<button class="link" onclick="askNotif()">Enable alerts</button>`) : `<small>Not supported here</small>`}</div><small>Alerts are checked upon app launch.</small></div>
       <div class="card"><label style="margin-top:0">Name</label><input id="bn" maxlength="40" placeholder="e.g. House rent / EB bill">
-      <label>Category</label><select id="bc">${Object.keys(BC).map(c => `<option>${c}</option>`).join("")}</select>
+      <label>Category</label><select id="bc">${opts(Object.keys(BC), "Rent")}</select>
       <label>Amount (₹)</label><input id="ba" type="number" inputmode="decimal" min="0" step="any" placeholder="e.g. 12000">
       <label>Repeats</label><select id="bf" onchange="bfC()"><option value="monthly">Monthly</option><option value="weekly">Weekly</option><option value="yearly">Yearly</option></select>
       <div id="bfx">${bfHtml("monthly")}</div>
@@ -902,7 +1213,7 @@
       try { localStorage.setItem("notif-date", today()); } catch (e) {}
     }
 
-    // --- Google Drive Backup (Hidden App Data Folder) ---
+    // --- Google Drive Backup ---
     const CLIENT_ID = "386974473840-bhnhm2qv91iq87c3lt78hp8b3gs2tp61.apps.googleusercontent.com";
     const FN = "spend-tracker.json";
     let tok = null, tc = null, timer = null;
@@ -998,8 +1309,8 @@
       if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
     });
 
-    // --- Navigation ---
-    const V = { home, hist, add, price, rep, prod, scan, bills };
+    // --- Navigation Routing ---
+    const V = { home, hist, add, price, rep, prod, bill, bills, edit };
     const N = [
       ["home", "🏠", "Home"],
       ["hist", "🧾", "History"],
@@ -1011,8 +1322,9 @@
     function go(x) {
       v = x;
       $("#app").innerHTML = V[x]();
-      $("#nav").innerHTML = N.map(n => n[1] ? `<button class="${n[0] == v ? "on" : ""}" onclick="go('${n[0]}')"><span>${n[1]}</span>${n[2]}</button>` : `<button class="plus" aria-label="Add purchase" onclick="freshAdd()">+</button>`).join("");
+      $("#nav").innerHTML = N.map(n => n[1] ? `<button class="${n[0] == v ? "on" : ""}" onclick="go('${n[0]}')"><span>${n[1]}</span>${n[2]}</button>` : `<button class="plus" aria-label="Add purchase" onclick="go('add')">+</button>`).join("");
       window.scrollTo(0, 0);
+      if (x === "bill") bt();
     }
 
     go("home");
