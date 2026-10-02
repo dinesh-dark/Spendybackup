@@ -312,54 +312,89 @@ if(last==today())return;
 const due=S.bills.filter(b=>!paidToday(b)&&nextDue(b)<=addDays(today(),1));
 if(due.length){try{new Notification("Bills due",{body:due.map(b=>b.name+" – "+fm(b.amount)).join(", ").slice(0,180)})}catch(e){}}
 try{localStorage.setItem("notif-date",today())}catch(e){}}
-// ---------- Bill OCR + verification: read locally, review every item, then save ----------
-let B=null;
-const UN=["kg","g","L","ml","pcs"];
+// ---------- Bill scan: read a bill photo on the server, let the user check it, then add to spending ----------
+let B=null;const UN=["kg","g","L","ml","pcs"];
 const opts=(a,x)=>a.map(o=>`<option ${o==x?"selected":""}>${esc(o)}</option>`).join("");
-
-function scan(){return `<h1>Scan a bill</h1>
-<div class="card">
-<label style="margin-top:0">Photo or PDF of the bill</label>
-<input type="file" accept="image/*,application/pdf" onchange="onBillFile(this.files[0])">
-<div id="scanStatus" style="margin-top:8px"><small>Take a clear photo of the whole receipt, or choose a PDF. The bill is read on this device and nothing is saved until you verify it.</small></div>
-<div id="scanPrev"></div></div>
-<div class="card"><small><b>Verification:</b> OCR suggests the store, date, total and line items. You can edit, remove or unselect anything before it is added to your spending.</small></div>`}
-
-function bill(){
-const up=`<label class="btn upl" for="bf">📷 ${B&&B.items?"Scan another bill":"Upload or take a photo of the bill"}</label><input id="bf" type="file" accept="image/*,application/pdf" hidden onchange="onBillFile(this.files[0]);this.value=''">`;
-if(!B||!B.items)return `<h1>Scan a bill</h1><div class="card"><small>Items and amounts are read for you, and nothing is saved until you check them.</small>${up}${B&&B.img?`<img class="thumb" src="${B.img}" alt="Bill photo">`:""}${B&&B.busy?`<div class="empty">Reading your bill… this may take a minute.</div>`:""}<div class="err">${B&&B.err?esc(B.err):""}</div></div><button class="link" onclick="go('add')">Add a purchase by hand instead</button>`;
-return `<h1>Check your bill</h1>
-<div class="card"><div class="head"><b>Verify before saving</b><small>OCR complete</small></div><small>Correct anything OCR read incorrectly. Untick items you don't want to record. Nothing is saved yet.</small>${B.img?`<img class="thumb" src="${B.img}" alt="Bill photo">`:""}
-<label>Store</label><input maxlength="40" value="${esc(B.store||"")}" placeholder="e.g. Supermarket" oninput="B.store=this.value">
-<div class="f"><div><label>Date</label><input type="date" value="${B.date||today()}" oninput="B.date=this.value"></div><div><label>Payment mode</label><select onchange="B.pay=this.value">${opts(["Cash","UPI","Card"],B.pay||"Cash")}</select></div></div></div>
-<div class="card"><div class="head"><b>Items on the bill</b><small id="bn"></small></div>
-${B.items.map((i,k)=>`<div class="bi ${i.on?"":"off"}" id="bi${k}"><div class="f" style="align-items:center"><input type="checkbox" style="width:auto;flex:none" ${i.on?"checked":""} aria-label="Include" onchange="bs(${k},'on',this.checked);$('#bi${k}').classList.toggle('off',!this.checked)"><span class="em" style="flex:none">${emo(i.name)}</span><input maxlength="60" value="${esc(i.name)}" aria-label="Product" oninput="bs(${k},'name',this.value)"><button class="del" style="flex:none" aria-label="Remove" onclick="B.items.splice(${k},1);go('bill')">✕</button></div>
-<div class="f"><input type="number" inputmode="decimal" min="0" step="any" value="${Number.isFinite(i.qty)?i.qty:1}" aria-label="Quantity" oninput="bs(${k},'qty',+this.value)"><select aria-label="Unit" onchange="bs(${k},'unit',this.value)">${opts(UN,i.unit||"pcs")}</select><input type="number" inputmode="decimal" min="0" step="any" value="${Number.isFinite(i.amount)?i.amount:""}" aria-label="Amount" placeholder="₹" oninput="bs(${k},'amount',this.value===''?NaN:+this.value)"></div>
-<div class="f" style="align-items:center"><select aria-label="Category" onchange="bs(${k},'cat',this.value)">${opts(Object.keys(CC),i.cat||"Grocery")}</select><small id="bu${k}" style="text-align:right"></small></div></div>`).join("")||empty("No items found. Add a missing item below.")}
+function bill(){const up=`<label class="btn upl" for="bf">📷 ${B&&B.items?"Scan another bill":"Upload or take a photo of the bill"}</label><input id="bf" type="file" accept="image/*,application/pdf" hidden onchange="scan(this.files[0]);this.value=''">`;
+if(!B||!B.items)return `<h1>Scan a bill</h1><div class="card"><small>Take a clear photo of the whole bill. The items and amounts are read for you, and nothing is saved until you check them and tap Add.</small>${up}${B&&B.img?`<img class="thumb" src="${B.img}" alt="Bill photo">`:""}${B&&B.busy?`<div class="empty">Reading your bill… this can take up to a minute.</div>`:""}<div class="err">${B&&B.err?esc(B.err):""}</div></div><button class="link" onclick="go('add')">Add a purchase by hand instead</button>`;
+return `<h1>Check your bill</h1><div class="card"><small>Fix anything that was read wrong, untick items you don't want, then add them to your spending.</small>${B.img?`<img class="thumb" src="${B.img}" alt="Bill photo">`:""}
+<label>Store</label><input maxlength="40" value="${esc(B.store||"")}" placeholder="e.g. Big Bazaar" oninput="B.store=this.value">
+<div class="f"><div><label>Date</label><input type="date" value="${B.date}" oninput="B.date=this.value"></div><div><label>Payment mode</label><select onchange="B.pay=this.value">${opts(["Cash","UPI","Card"],B.pay)}</select></div></div></div>
+<div class="card"><div class="head"><b>Items on the bill</b><small id="bn"></small></div>${B.items.map((i,k)=>`<div class="bi ${i.on?"":"off"}" id="bi${k}"><div class="f" style="align-items:center"><input type="checkbox" style="width:auto;flex:none" ${i.on?"checked":""} aria-label="Include" onchange="bs(${k},'on',this.checked);$('#bi${k}').classList.toggle('off',!this.checked)"><span class="em" style="flex:none">${emo(i.name)}</span><input maxlength="40" value="${esc(i.name)}" aria-label="Product" oninput="bs(${k},'name',this.value)"><button class="del" style="flex:none" aria-label="Remove" onclick="B.items.splice(${k},1);go('bill')">✕</button></div>
+<div class="f"><input type="number" inputmode="decimal" min="0" step="any" value="${i.qty}" aria-label="Quantity" oninput="bs(${k},'qty',+this.value)"><select aria-label="Unit" onchange="bs(${k},'unit',this.value)">${opts(UN,i.unit)}</select><input type="number" inputmode="decimal" min="0" step="any" value="${i.amount}" aria-label="Amount (₹)" placeholder="₹" oninput="bs(${k},'amount',this.value===''?NaN:+this.value)"></div>
+<div class="f" style="align-items:center"><select aria-label="Category" onchange="bs(${k},'cat',this.value)">${opts(Object.keys(CC),i.cat)}</select><small id="bu${k}" style="text-align:right"></small></div></div>`).join("")||empty("No items found. Add them below.")}
 <button class="link" style="margin-top:10px" onclick="B.items.push({name:'',qty:1,unit:'pcs',amount:NaN,cat:'Grocery',on:true});go('bill')">+ Add a missing item</button></div>
-<div class="card"><label style="margin-top:0">Bill total printed on the bill (₹)</label><input type="number" inputmode="decimal" min="0" step="any" value="${B.total||""}" placeholder="Optional — used for verification" oninput="B.total=+this.value||0;bt()">
+<div class="card"><label style="margin-top:0">Bill total printed on the bill (₹)</label><input type="number" inputmode="decimal" min="0" step="any" value="${B.total||""}" placeholder="Optional, used to double-check" oninput="B.total=+this.value||0;bt()">
 <div class="total"><span>Selected items total</span><span id="bsum"></span></div><div id="bchk"></div><div class="err" id="berr"></div>
-<button class="btn" id="badd" onclick="addBill()">Add verified items to spending</button><button class="link" style="display:block;margin:12px auto 0" onclick="B=null;go('scan')">Discard this bill</button></div>${up}`}
-function bs(k,f,x){if(!B||!B.items[k])return;B.items[k][f]=x;bt()}
-function bt(){if(!B||!B.items||!$("#bsum"))return;const on=B.items.filter(i=>i.on),t=on.reduce((s,i)=>s+(Number.isFinite(+i.amount)?+i.amount:0),0);B.items.forEach((i,k)=>{const e=$("#bu"+k);if(e)e.textContent=i.qty>0&&i.amount>=0?fm(i.amount/i.qty)+"/"+i.unit:""});$("#bsum").textContent=fm(t);$("#bn").textContent=on.length+" of "+B.items.length+" selected";$("#badd").textContent="Add "+on.length+" item"+(on.length==1?"":"s")+" to spending";const d=B.total?t-B.total:0;$("#bchk").innerHTML=!B.total?"":Math.abs(d)<1?`<div class="warn ok">✓ Selected items match the bill total of ${fm(B.total)}</div>`:`<div class="warn">${d<0?fm(-d)+" less":fm(d)+" more"} than the printed bill total. Check for missed items, discounts or taxes.</div>`}
-function freshAdd(){B=null;go("add")}
-function imgToCanvas(file){return new Promise((res,rej)=>{const img=new Image(),url=URL.createObjectURL(file);img.onload=()=>{const sc=Math.min(1,1600/Math.max(img.width,img.height)),c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);res(c)};img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("img"))};img.src=url})}
-let pdfjsReady=null;function loadPdfJs(){if(pdfjsReady)return pdfjsReady;pdfjsReady=new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.js";s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js";res()};s.onerror=()=>rej(new Error("pdfjs"));document.head.appendChild(s)});return pdfjsReady}
-async function pdfToCanvas(file){await loadPdfJs();const buf=await file.arrayBuffer(),doc=await window.pdfjsLib.getDocument({data:buf}).promise,page=await doc.getPage(1),vp0=page.getViewport({scale:1}),scale=Math.min(2,1600/vp0.width),vp=page.getViewport({scale}),c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;return c}
-let tessReady=null;function loadTess(){if(tessReady)return tessReady;tessReady=new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";s.onload=()=>res();s.onerror=()=>rej(new Error("tesseract"));document.head.appendChild(s)});return tessReady}
-async function ocrText(canvas,statusEl){await loadTess();const r=await window.Tesseract.recognize(canvas,"eng",{logger:m=>{if(statusEl&&m.status)statusEl.innerHTML="<small>"+m.status+(m.progress?" "+Math.round(m.progress*100)+"%":"")+"</small>"}});return(r&&r.data&&r.data.text)||""}
+<button class="btn" id="badd" onclick="addBill()">Add to spending</button><button class="link" style="display:block;margin:12px auto 0" onclick="B=null;go('bill')">Discard this bill</button></div>${up}`}
+function bs(k,f,x){B.items[k][f]=x;bt()}
+function bt(){if(!B||!B.items||!$("#bsum"))return;const on=B.items.filter(i=>i.on),t=on.reduce((s,i)=>s+(+i.amount||0),0);
+B.items.forEach((i,k)=>{const e=$("#bu"+k);if(e)e.textContent=i.qty>0&&i.amount>=0?fm(i.amount/i.qty)+"/"+i.unit:""});
+$("#bsum").textContent=fm(t);$("#bn").textContent=on.length+" of "+B.items.length+" selected";$("#badd").textContent="Add "+on.length+" item"+(on.length==1?"":"s")+" to spending";
+const d=B.total?t-B.total:0;$("#bchk").innerHTML=!B.total?"":Math.abs(d)<1?`<div class="warn ok">✓ Matches the bill total of ${fm(B.total)}</div>`:`<div class="warn">${d<0?fm(-d)+" less":fm(d)+" more"} than the bill total of ${fm(B.total)}. Check for missed items, discounts or taxes.</div>`}
+function shrink(f){return new Promise((ok,no)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>{const m=1800,r=Math.min(1,m/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*r);c.height=Math.round(im.height*r);c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL("image/jpeg",.85))};im.onerror=()=>{URL.revokeObjectURL(u);no(new Error("img"))};im.src=u})}
+const b64=f=>new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=no;r.readAsDataURL(f)});
+async function scan(f){if(!f)return;const pdf=f.type=="application/pdf";B={busy:true};
+if(!navigator.onLine){B.err="You're offline. Connect to the internet to read a bill.";return go("bill")}
+if(pdf&&f.size>4e6){B.err="That PDF is too large (max 4 MB).";return go("bill")}
+go("bill");let url;try{url=pdf?await b64(f):await shrink(f)}catch(e){B={err:"Couldn't open that file. Try a JPG or PNG photo."};return go("bill")}
+B.img=pdf?"":url;go("bill");
+try{const r=await fetch("/api/scan-bill",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:pdf?"application/pdf":"image/jpeg",data:url.split(",")[1],products:allP().map(p=>p[0])})});
+const j=await r.json().catch(()=>({error:"Could not read the bill. Try again."}));if(!r.ok||j.error)throw new Error(j.error||"Could not read the bill. Try again.");
+B={img:B.img,store:j.store,date:j.date||today(),pay:j.pay||"Cash",total:j.total,items:j.items.map(i=>({...i,on:true}))}}
+catch(e){B={img:B.img,err:e.message}}if(v=="bill"){go("bill");bt()}}
+function addBill(){const on=B.items.filter(i=>i.on);
+if(!on.length){$("#berr").textContent="Select at least one item to add.";return}
+if(!B.date){$("#berr").textContent="Enter the bill date.";return}
+if(on.some(i=>!String(i.name).trim()||!(i.qty>0)||!(i.amount>=0))){$("#berr").textContent="Each selected item needs a name, a quantity above 0 and an amount.";return}
+const id=Date.now();on.forEach((i,k)=>S.items.push({id:id+k,name:i.name.trim(),cat:i.cat,qty:i.qty,unit:i.unit,price:i.amount/i.qty,total:+i.amount,date:B.date,pay:B.pay,store:(B.store||"").trim(),notes:"From scanned bill"}));
+save();mo=B.date.slice(0,7);B=null;go("hist")}
 
-function parseBill(text){
-const lines=text.split(/\r?\n/).map(s=>s.replace(/\s+/g," ").trim()).filter(Boolean),moneyRe=/(?:₹|rs\.?|inr)?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/ig,dateRe=/([0-3]?\d)[\/\-.]([01]?\d)[\/\-.]((?:20)?\d\d)/,ignore=/^(total|subtotal|sub total|grand total|net total|amount|tax|gst|cgst|sgst|discount|round off|change|cash|card|upi|tender|balance|invoice|receipt|bill no|phone|tel|date|time|thank)/i;
-let total=null,date=null,merchant="";
-for(const l of lines){if(!date){const m=l.match(dateRe);if(m){let d=+m[1],mm=+m[2],yy=+m[3];if(yy<100)yy+=2000;if(d<=31&&mm<=12)date=yy+"-"+String(mm).padStart(2,"0")+"-"+String(d).padStart(2,"0")}}if(!total&&/(grand total|net total|amount due|bill total|total amount|total\b)/i.test(l)){let m,best=null;moneyRe.lastIndex=0;while(m=moneyRe.exec(l)){const n=parseFloat(m[1].replace(/,/g,""));if(n>=0)best=n}if(best!=null)total=best}}
-merchant=lines.slice(0,6).find(l=>l.length>=3&&l.length<=45&&!ignore.test(l)&&!dateRe.test(l)&&!/[₹$]?\s*\d{2,}/.test(l))||"";
-const items=[];
-for(const l of lines){if(ignore.test(l)||/(grand total|net total|amount due|bill total|total amount|total\b)/i.test(l))continue;let matches=[],m;moneyRe.lastIndex=0;while(m=moneyRe.exec(l))matches.push({value:parseFloat(m[1].replace(/,/g,"")),index:m.index});if(!matches.length)continue;const amount=matches[matches.length-1].value;if(!(amount>=0)||amount>1000000)continue;let name=l.slice(0,matches[matches.length-1].index).replace(/^[\s\-*#.,:;]+/,"").trim();name=name.replace(/^\d{1,6}\s+/,"").replace(/^\d+(?:\.\d+)?\s*(?:x|×)\s*/i,"").trim();let qty=1,unit="pcs";const qm=name.match(/(\d+(?:\.\d+)?)\s*(kg|kgs|g|gm|gms|l|ltr|litre|litres|ml|pcs|pc|pack|packs|x|×)\b/i);if(qm){qty=parseFloat(qm[1]);unit=/kg/i.test(qm[2])?"kg":/g/i.test(qm[2])?"g":/^l/i.test(qm[2])?"L":/ml/i.test(qm[2])?"ml":"pcs";name=name.replace(qm[0],"").trim()}if(!name||name.length<2||name.length>60||/^[\d\s.,:/-]+$/.test(name))continue;const known=allP().find(p=>{const q=p[0].toLowerCase(),n=name.toLowerCase();return n.includes(q)||q.includes(n)});if(known){name=known[0];if(unit==="pcs"&&known[3])unit=known[3]}items.push({name,qty,unit,amount,cat:known?known[2]:"Grocery",on:true})}
-const seen=new Set(),clean=[];for(const i of items){const key=i.name.toLowerCase().replace(/[^a-z0-9]+/g," ").trim()+"|"+i.amount;if(!seen.has(key)){seen.add(key);clean.push(i)}}return{store:merchant,date:date||today(),total,items:clean}
-}
-async function onBillFile(file){if(!file)return;const st=$("#scanStatus");if(st)st.innerHTML="<small>Preparing the bill…</small>";B={busy:true};try{const canvas=file.type==="application/pdf"?await pdfToCanvas(file):await imgToCanvas(file);B.img=canvas.toDataURL("image/jpeg",0.85);if($("#scanPrev"))$("#scanPrev").innerHTML=`<img src="${B.img}" style="max-width:100%;border-radius:10px;margin-top:8px">`;let text="";try{text=await ocrText(canvas,st)}catch(e){throw new Error("OCR could not be loaded. Check your internet connection and try again.")}const parsed=parseBill(text);B={...parsed,img:B.img,ocrText:text,pay:"Cash",busy:false};if(!B.items.length){B.err="No clear line items were detected. Add the items manually below.";B.items=[{name:"",qty:1,unit:"pcs",amount:NaN,cat:"Grocery",on:true}]}go("bill");bt()}catch(e){B={img:B&&B.img,err:e.message||"Couldn't read the bill. Try a clearer photo or PDF.",items:null};go("bill")}}
-function addBill(){if(!B||!B.items)return;const on=B.items.filter(i=>i.on);if(!on.length){$("#berr").textContent="Select at least one item to add.";return}if(!B.date){$("#berr").textContent="Enter the bill date.";return}if(on.some(i=>!String(i.name).trim()||!(i.qty>0)||!(i.amount>=0))){$("#berr").textContent="Each selected item needs a name, a quantity above 0 and an amount.";return}const id=Date.now();on.forEach((i,k)=>S.items.push({id:id+k,name:i.name.trim(),cat:i.cat||"Grocery",qty:+i.qty,unit:i.unit||"pcs",price:+i.amount/+i.qty,total:+i.amount,date:B.date,pay:B.pay||"Cash",store:(B.store||"").trim(),notes:"From verified scanned bill"}));save();mo=B.date.slice(0,7);B=null;go("hist")}
+const SC=["#1d4ed8","#16a34a","#f97316","#8b5cf6","#ec4899","#06b6d4"];let stf="all",curSt=[];
+const nz=i=>i.unit=="g"?{p:i.price*1000,u:"kg"}:i.unit=="ml"?{p:i.price*1000,u:"L"}:{p:i.price,u:i.unit};
+const sn=i=>i.store||"Unknown store";
+function pf(k){stf=k<0?"all":curSt[k];go("price")}
+function price(){const names=[...new Set(S.items.map(i=>i.name))].sort();
+if(!names.length)return `<h1>Price tracker</h1>${empty("Add a few purchases and you'll see how prices change over time and by store.")}`;
+if(!names.includes(sel))sel=names[0];
+const raw=S.items.filter(i=>i.name==sel).sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id),u=nz(raw[raw.length-1]).u;
+const it=raw.map(i=>({...i,...nz(i)})).filter(i=>i.u==u),stores=[...new Set(it.map(sn))];curSt=stores;
+if(!stores.includes(stf))stf="all";
+const shown=stf=="all"?stores:[stf],pts=it.filter(i=>shown.includes(sn(i))),last=pts[pts.length-1],prev=pts[pts.length-2];
+const ps=pts.map(i=>i.p),mx=Math.max(...ps),mn=Math.min(...ps),avg=ps.reduce((a,b)=>a+b,0)/ps.length;
+const ch=prev&&prev.p?(last.p-prev.p)/prev.p*100:null;
+const t0=+new Date(pts[0].date),t1=+new Date(last.date),rg=mx-mn||1,X=d=>t1==t0?160:36+(new Date(d)-t0)/(t1-t0)*250,Y=p=>92-(p-mn)/rg*66;
+const svg=`<svg viewBox="0 0 310 125" width="100%" role="img" aria-label="Price history by store"><text x="30" y="${Y(mx)+3}" text-anchor="end">${+mx.toFixed(1)}</text><text x="30" y="${Y(mn)+3}" text-anchor="end">${+mn.toFixed(1)}</text><line x1="34" x2="300" y1="${Y(mx)}" y2="${Y(mx)}" stroke="var(--line)"/><line x1="34" x2="300" y1="${Y(mn)}" y2="${Y(mn)}" stroke="var(--line)"/>${stores.filter(x=>shown.includes(x)).map(x=>{const c=SC[stores.indexOf(x)%6],a=pts.filter(i=>sn(i)==x);return (a.length>1?`<polyline points="${a.map(i=>X(i.date)+","+Y(i.p)).join(" ")}" fill="none" stroke="${c}" stroke-width="2.5"/>`:"")+a.map(i=>`<circle cx="${X(i.date)}" cy="${Y(i.p)}" r="3.5" fill="${c}"><title>${esc(x)} · ${df(i.date)} · ${fm(i.p)}/${u}</title></circle>`).join("")}).join("")}<text x="36" y="118">${df(pts[0].date)}</text><text x="300" y="118" text-anchor="end">${df(last.date)}</text></svg>`;
+const st=stores.map(x=>{const a=it.filter(i=>sn(i)==x);return{s:x,l:a[a.length-1].p,avg:a.reduce((q,i)=>q+i.p,0)/a.length,lo:Math.min(...a.map(i=>i.p)),n:a.length}}).sort((a,b)=>a.l-b.l);
+return `<h1>Price tracker</h1><select onchange="sel=this.value;stf='all';go('price')" aria-label="Product">${names.map(n=>`<option ${n==sel?"selected":""}>${esc(n)}</option>`).join("")}</select>
+<div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0"><button class="pill ${stf=="all"?"on":""}" onclick="pf(-1)">All stores</button>${stores.map((x,k)=>`<button class="pill ${stf==x?"on":""}" onclick="pf(${k})">${esc(x)}</button>`).join("")}</div>
+<div class="card"><div class="head"><span style="font-size:30px">${emo(sel)}</span>${ch===null?"":`<span class="${ch>0?"up":"dn"}">${ch>0?"▲ +":"▼ "}${ch.toFixed(1)}% vs previous buy</span>`}</div>
+<div class="two"><div><small>Latest</small><br><b>${fm(last.p)}/${u}</b></div><div><small>Lowest</small><br><b>${fm(mn)}</b></div><div><small>Average</small><br><b>${fm(avg)}</b></div><div style="text-align:right"><small>Highest</small><br><b>${fm(mx)}</b></div></div></div>
+<div class="card"><b>Price per ${u}</b>${pts.length>1?svg:empty("Buy this again to see the price graph.")}${stores.length>1&&stf=="all"?`<div style="display:flex;gap:12px;flex-wrap:wrap">${stores.map((x,k)=>`<div class="leg"><i style="background:${SC[k%6]}"></i>${esc(x)}</div>`).join("")}</div>`:""}</div>
+<div class="card"><b>Store comparison</b> <small>latest price per ${u}</small>${stores.length>1?st.map((x,k)=>`<div class="row"><i style="width:10px;height:10px;border-radius:3px;background:${SC[stores.indexOf(x.s)%6]}"></i><div class="g"><b>${esc(x.s)}</b><small>Avg ${fm(x.avg)} · Low ${fm(x.lo)} · ${x.n} buy${x.n>1?"s":""}</small></div><div class="r"><b>${fm(x.l)}</b><small class="${k?"up":"dn"}">${k?"+"+fm(x.l-st[0].l)+" vs cheapest":"Cheapest"}</small></div></div>`).join(""):empty("Log "+esc(sel)+" from another store to compare prices.")}</div>
+<div class="card"><b>Previous purchases</b>${[...pts].reverse().map(i=>`<div class="row"><div class="g">${df(i.date)}<br><small>${esc(sn(i))}</small></div><b>${fm(i.p)}/${u}</b></div>`).join("")}</div>`}
+
+function prod(){return `<h1>My products</h1><div class="card"><label style="margin-top:0">Product name</label><input id="pn" maxlength="40" placeholder="e.g. Idli batter">
+<div class="f"><div><label>Emoji</label><input id="pe" value="🛒" maxlength="4"></div><div><label>Default unit</label><select id="pu"><option>kg</option><option>g</option><option>L</option><option>ml</option><option>pcs</option></select></div></div>
+<label>Category</label><select id="pc">${Object.keys(CC).map(c=>`<option>${c}</option>`).join("")}</select><div class="err" id="perr"></div><button class="btn" onclick="addProd()">Save product</button></div>
+<div class="card"><b>Your custom products</b>${S.prods.length?S.prods.map((p,k)=>`<div class="row"><span class="em">${esc(p.emo)}</span><div class="g"><b>${esc(p.name)}</b><small>${p.cat} · per ${p.unit}</small></div><button class="del" aria-label="Delete" onclick="delProd(${k})">✕</button></div>`).join(""):empty("No custom products yet. Add one above and it shows up when you add a purchase.")}</div>
+<button class="link" onclick="go('add')">Back to add purchase</button>`}
+function addProd(){const n=$("#pn").value.trim();if(!n){$("#perr").textContent="Enter a product name.";return}
+if(allP().some(p=>p[0].toLowerCase()==n.toLowerCase())){$("#perr").textContent="That product is already in your list.";return}
+S.pdel=(S.pdel||[]).filter(x=>x!=n.toLowerCase());S.prods.push({name:n,emo:$("#pe").value.trim()||"🛒",cat:$("#pc").value,unit:$("#pu").value});save();go("prod")}
+function delProd(k){(S.pdel=S.pdel||[]).push(S.prods[k].name.toLowerCase());S.prods.splice(k,1);save();go("prod")}
+
+function rep(){const it=inMo(mo),t=sum(it);
+if(!it.length)return `<h1>Reports</h1>${mnav()}${empty("No purchases in this month yet.")}`;
+const by={};it.forEach(i=>by[i.cat]=(by[i.cat]||0)+i.total);const cats=Object.entries(by).sort((a,b)=>b[1]-a[1]);
+const C=2*Math.PI*40;let acc=0;
+const arcs=cats.map(([c,a])=>{const l=a/t*C,s=`<circle cx="60" cy="60" r="40" fill="none" stroke="${CC[c]||"#888"}" stroke-width="18" stroke-dasharray="${l} ${C-l}" stroke-dashoffset="${-acc}" transform="rotate(-90 60 60)"/>`;acc+=l;return s}).join("");
+const days=[];for(let k=6;k>=0;k--){const d=new Date();d.setDate(d.getDate()-k);days.push(new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10))}
+const dv=days.map(d=>sum(S.items.filter(i=>i.date==d))),mx=Math.max(...dv,1);
+const bars=dv.map((x,k)=>{const h=x/mx*80;return `<rect x="${12+k*40}" y="${95-h}" width="24" height="${h}" rx="4" fill="var(--blue)"/><text x="${24+k*40}" y="108" text-anchor="middle">${days[k].slice(8)}</text>`}).join("");
+return `<h1>Reports</h1>${mnav()}<div class="card"><div class="f" style="align-items:center"><svg viewBox="0 0 120 120" width="120" style="flex:none" role="img" aria-label="Spending by category">${arcs}<text x="60" y="58" text-anchor="middle">Total</text><text x="60" y="70" text-anchor="middle" style="font-weight:700;fill:var(--ink);font-size:10px">${fm(t)}</text></svg>
+<div>${cats.map(([c,a])=>`<div class="leg"><i style="background:${CC[c]||"#888"}"></i>${c}<b>${fm(a)}</b></div>`).join("")}</div></div></div>
+<div class="card"><b>Last 7 days</b><svg viewBox="0 0 290 115" width="100%" role="img" aria-label="Daily spending">${bars}</svg></div>`}
 
 // ---------- Google Drive sync (stores one JSON file in this app's hidden Drive app-data folder) ----------
 const CLIENT_ID="386974473840-bhnhm2qv91iq87c3lt78hp8b3gs2tp61.apps.googleusercontent.com",FN="spend-tracker.json";
