@@ -1,323 +1,1025 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Spend Tracker</title>
-<link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0b3a8f"><link rel="apple-touch-icon" href="icon-192.png">
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-:root{--bg:#f3f6fc;--card:#fff;--ink:#0f1b3d;--mute:#6b7690;--blue:#1d4ed8;--hero:#0b3a8f;--green:#16a34a;--red:#dc2626;--line:#e3e9f5;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1220;--card:#131c30;--ink:#e8eefc;--mute:#93a0bd;--blue:#5b8cff;--hero:#12306b;--line:#22304d}}
-:root[data-theme="dark"]{--bg:#0b1220;--card:#131c30;--ink:#e8eefc;--mute:#93a0bd;--blue:#5b8cff;--hero:#12306b;--line:#22304d}
-*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 Inter,system-ui,-apple-system,Segoe UI,sans-serif}
-main{max-width:480px;margin:0 auto;padding:16px 16px 96px}
-h1{font-size:20px;margin:4px 0 14px}small{color:var(--mute);font-size:12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
-.hero{background:var(--hero);color:#fff;border-radius:20px;padding:18px 16px 14px;margin-bottom:14px}
-.hero small{color:#c7d6ff}.big{font-size:32px;font-weight:700;margin:4px 0 10px}
-.bar{height:8px;border-radius:8px;background:#ffffff33;overflow:hidden}.bar i{display:block;height:100%;background:#4ade80}
-.bar.over i{background:#f87171}
-.two{display:flex;justify-content:space-between;margin-top:10px}
-.hero input{width:110px;background:#ffffff1f;border:0;color:#fff;border-radius:8px;padding:4px 8px;font:inherit;font-weight:600;text-align:right}
-.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
-.tile{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;text-align:left;color:var(--ink);font:inherit;cursor:pointer}
-.tile b{display:block;margin-top:6px}
-.row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}
-.em{font-size:26px;width:38px;text-align:center}.g{flex:1}.g b,.r b{display:block}.r{text-align:right}
-.head{display:flex;justify-content:space-between;align-items:center;margin:6px 0}
-.mnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.mnav button,.link{background:none;border:0;color:var(--blue);font:inherit;font-weight:600;cursor:pointer}
-.mnav span{font-weight:600}
-.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
-.chip{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 4px;text-align:center;font:inherit;font-size:12px;color:var(--ink);cursor:pointer}
-.chip span{display:block;font-size:24px}.chip.on{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,var(--card))}
-label{display:block;font-size:13px;font-weight:600;margin:12px 0 4px}
-input,select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font:inherit}
-.f{display:flex;gap:8px}.f>*{flex:1}
-.total{background:color-mix(in srgb,var(--blue) 10%,var(--card));border-radius:12px;padding:12px;margin-top:14px;display:flex;justify-content:space-between;font-weight:700}
-.btn{width:100%;margin-top:14px;padding:14px;border:0;border-radius:12px;background:var(--blue);color:#fff;font:inherit;font-weight:700;cursor:pointer}
-.err{color:var(--red);font-size:13px;min-height:18px;margin-top:8px}
-.del{background:none;border:0;color:var(--mute);font-size:16px;cursor:pointer}
-.up{color:var(--red);font-weight:600}.dn{color:var(--green);font-weight:600}
-.pill{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:20px;padding:6px 12px;font:inherit;font-size:13px;cursor:pointer}.pill.on{background:var(--blue);border-color:var(--blue);color:#fff}.empty{text-align:center;color:var(--mute);padding:28px 8px}
-svg text{fill:var(--mute);font-size:9px}
-.leg{display:flex;align-items:center;gap:8px;font-size:13px;margin:5px 0}.leg i{width:10px;height:10px;border-radius:3px}.leg b{margin-left:auto}
-nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
-nav div{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;padding:6px 0}
-nav button{background:none;border:0;color:var(--mute);font:inherit;font-size:11px;cursor:pointer;padding:4px}
-nav button span{display:block;font-size:20px}nav button.on{color:var(--blue);font-weight:600}
-nav .plus{width:48px;height:48px;border-radius:50%;background:var(--blue);color:#fff;font-size:26px;margin:-22px auto 0;display:block;box-shadow:0 4px 12px #1d4ed855}
-</style></head><body>
-<main id="app"></main>
-<nav><div id="nav"></div></nav>
-<script>
-const P=[["Rice","🍚","Grains"],["Dal","🫘","Grains"],["Wheat flour","🌾","Grains"],["Oil","🛢️","Grocery"],["Sugar","🍬","Grocery"],["Salt","🧂","Grocery"],["Tomato","🍅","Vegetables"],["Potato","🥔","Vegetables"],["Onion","🧅","Vegetables"],["Banana","🍌","Fruits"],["Apple","🍎","Fruits"],["Milk","🥛","Dairy"],["Eggs","🥚","Dairy"],["Chicken","🍗","Meat & fish"],["Fish","🐟","Meat & fish"],["Spices","🌶️","Grocery"],["Household","🧴","Household"],["Personal care","🧼","Household"]];
-const CC={Vegetables:"#16a34a",Fruits:"#f97316",Grains:"#8b5cf6",Dairy:"#06b6d4",Grocery:"#1d4ed8","Meat & fish":"#ec4899",Household:"#eab308"};
-const BC={Rent:"#0ea5e9",Electricity:"#ca8a04","Mobile & Internet":"#6366f1",Subscriptions:"#14b8a6",Insurance:"#64748b","Loan / EMI":"#ef4444","Other bills":"#a855f7"};
-const BE={Rent:"🏠",Electricity:"⚡","Mobile & Internet":"📶",Subscriptions:"🔁",Insurance:"🛡️","Loan / EMI":"🏦","Other bills":"🧾"};
-const AllC=()=>({...CC,...BC});
-let S=null;try{S=JSON.parse(localStorage.getItem("st"))}catch(e){}
-S=S||{budget:25000,items:[]};S.prods=S.prods||[];S.bills=S.bills||[];
-const raw=()=>{try{localStorage.setItem("st",JSON.stringify(S))}catch(e){}};
-const save=()=>{S.upd=Date.now();raw();if(tok){clearTimeout(timer);timer=setTimeout(sync,2500)}};
-const $=s=>document.querySelector(s);
-const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const fm=n=>"₹"+(+(+n).toFixed(2)).toLocaleString("en-IN");
-const df=d=>new Date(d+"T00:00").toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
-const allP=()=>[...P,...S.prods.map(p=>[p.name,p.emo,p.cat,p.unit])];const emo=n=>(allP().find(p=>p[0].toLowerCase()==String(n).toLowerCase())||[0,"🛒"])[1];
-const today=()=>{const d=new Date();return new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
-const ymd=d=>new Date(d-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
-const addDays=(ds,n)=>{const d=new Date(ds+"T00:00");d.setDate(d.getDate()+n);return ymd(d)};
-let v="home",mo=today().slice(0,7),sel=null,scanImg=null,scanGuess=null,repType="month",repAnchor=today(),repFrom=null,repTo=null;
-const inMo=m=>S.items.filter(i=>i.date.startsWith(m)).sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
-const sum=a=>a.reduce((s,i)=>s+i.total,0);
-const row=i=>`<div class="row"><span class="em">${emo(i.name)}</span><div class="g"><b>${esc(i.name)}</b><small>${i.qty} ${i.unit} · ${fm(i.price)}/${i.unit}${i.store?" · "+esc(i.store):""}</small></div><div class="r"><b>${fm(i.total)}</b><small>${df(i.date)}</small></div></div>`;
-const shift=d=>{const [y,m]=mo.split("-").map(Number);const n=new Date(y,m-1+d,1);mo=n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0");go(v)};
-const mnav=()=>`<div class="mnav"><button onclick="shift(-1)">‹</button><span>${new Date(mo+"-01T00:00").toLocaleDateString("en-IN",{month:"long",year:"numeric"})}</span><button onclick="shift(1)">›</button></div>`;
-const empty=t=>`<div class="empty">${t}</div>`;
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Spend Tracker</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b3a8f">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f3f6fc;
+      --card: #fff;
+      --ink: #0f1b3d;
+      --mute: #6b7690;
+      --blue: #1d4ed8;
+      --hero: #0b3a8f;
+      --green: #16a34a;
+      --red: #dc2626;
+      --line: #e3e9f5;
+      box-sizing: border-box;
+      padding-top: env(safe-area-inset-top, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0b1220;
+        --card: #131c30;
+        --ink: #e8eefc;
+        --mute: #93a0bd;
+        --blue: #5b8cff;
+        --hero: #12306b;
+        --line: #22304d;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #0b1220;
+      --card: #131c30;
+      --ink: #e8eefc;
+      --mute: #93a0bd;
+      --blue: #5b8cff;
+      --hero: #12306b;
+      --line: #22304d;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 15px/1.4 Inter, system-ui, -apple-system, Segoe UI, sans-serif;
+    }
+    main {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 16px 16px 96px;
+    }
+    h1 { font-size: 20px; margin: 4px 0 14px; }
+    small { color: var(--mute); font-size: 12px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .hero {
+      background: var(--hero);
+      color: #fff;
+      border-radius: 20px;
+      padding: 18px 16px 14px;
+      margin-bottom: 14px;
+    }
+    .hero small { color: #c7d6ff; }
+    .big { font-size: 32px; font-weight: 700; margin: 4px 0 10px; }
+    .bar {
+      height: 8px;
+      border-radius: 8px;
+      background: #ffffff33;
+      overflow: hidden;
+    }
+    .bar i { display: block; height: 100%; background: #4ade80; }
+    .bar.over i { background: #f87171; }
+    .two { display: flex; justify-content: space-between; margin-top: 10px; }
+    .hero input {
+      width: 110px;
+      background: #ffffff1f;
+      border: 0;
+      color: #fff;
+      border-radius: 8px;
+      padding: 4px 8px;
+      font: inherit;
+      font-weight: 600;
+      text-align: right;
+    }
+    .tiles {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .tile {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      text-align: left;
+      color: var(--ink);
+      font: inherit;
+      cursor: pointer;
+    }
+    .tile b { display: block; margin-top: 6px; }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .row:last-child { border: 0; }
+    .em { font-size: 26px; width: 38px; text-align: center; }
+    .g { flex: 1; }
+    .g b, .r b { display: block; }
+    .r { text-align: right; }
+    .head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 6px 0;
+    }
+    .mnav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .mnav button, .link {
+      background: none;
+      border: 0;
+      color: var(--blue);
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .mnav span { font-weight: 600; }
+    .chips {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .chip {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px 4px;
+      text-align: center;
+      font: inherit;
+      font-size: 12px;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .chip span { display: block; font-size: 24px; }
+    .chip.on {
+      border-color: var(--blue);
+      background: color-mix(in srgb, var(--blue) 12%, var(--card));
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin: 12px 0 4px;
+    }
+    input, select {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--ink);
+      font: inherit;
+    }
+    .f { display: flex; gap: 8px; }
+    .f > * { flex: 1; }
+    .total {
+      background: color-mix(in srgb, var(--blue) 10%, var(--card));
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      font-weight: 700;
+    }
+    .btn {
+      width: 100%;
+      margin-top: 14px;
+      padding: 14px;
+      border: 0;
+      border-radius: 12px;
+      background: var(--blue);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .err { color: var(--red); font-size: 13px; min-height: 18px; margin-top: 8px; }
+    .del { background: none; border: 0; color: var(--mute); font-size: 16px; cursor: pointer; }
+    .up { color: var(--red); font-weight: 600; }
+    .dn { color: var(--green); font-weight: 600; }
+    .pill {
+      border: 1px solid var(--line);
+      background: var(--card);
+      color: var(--ink);
+      border-radius: 20px;
+      padding: 6px 12px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .pill.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .empty { text-align: center; color: var(--mute); padding: 28px 8px; }
+    svg text { fill: var(--mute); font-size: 9px; }
+    .leg { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 5px 0; }
+    .leg i { width: 10px; height: 10px; border-radius: 3px; }
+    .leg b { margin-left: auto; }
+    nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--card);
+      border-top: 1px solid var(--line);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    nav div {
+      max-width: 480px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      align-items: center;
+      padding: 6px 0;
+    }
+    nav button {
+      background: none;
+      border: 0;
+      color: var(--mute);
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      padding: 4px;
+    }
+    nav button span { display: block; font-size: 20px; }
+    nav button.on { color: var(--blue); font-weight: 600; }
+    nav .plus {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--blue);
+      color: #fff;
+      font-size: 26px;
+      margin: -22px auto 0;
+      display: block;
+      box-shadow: 0 4px 12px #1d4ed855;
+    }
+  </style>
+</head>
+<body>
+  <main id="app"></main>
+  <nav><div id="nav"></div></nav>
 
-function home(){const cur=today().slice(0,7),it=inMo(cur),t=sum(it),b=S.budget,left=b-t,p=Math.min(100,b>0?t/b*100:0);
-const due=S.bills.filter(x=>!paidToday(x)&&nextDue(x)<=addDays(today(),2));
-return `<small>Welcome back</small><h1>Your spending</h1>
-<div class="hero"><small>This month's spending</small><div class="big">${fm(t)}</div>
-<div class="bar ${left<0?"over":""}"><i style="width:${p}%"></i></div>
-<div class="two"><div><small>Monthly budget</small><br>₹<input type="number" inputmode="decimal" value="${b}" onchange="S.budget=+this.value||0;save();go('home')" aria-label="Monthly budget"></div>
-<div style="text-align:right"><small>${left<0?"Over budget":"Remaining"}</small><br><b>${fm(Math.abs(left))}</b></div></div></div>
-${due.length?`<div class="card" style="border-color:#f59e0b"><b>⏰ ${due.length} bill${due.length>1?"s":""} due soon</b>${due.map(x=>`<div class="row"><span class="em">${BE[x.category]||"🧾"}</span><div class="g"><b>${esc(x.name)}</b><small>${nextDue(x)==today()?"Due today":"Due "+df(nextDue(x))}</small></div><div class="r"><b>${fm(x.amount)}</b></div></div>`).join("")}<button class="link" onclick="go('bills')">Manage bills</button></div>`:""}
-<div class="tiles"><button class="tile" onclick="freshAdd()">➕<b>Add purchase</b><small>Log what you bought</small></button>
-<button class="tile" onclick="go('scan')">📷<b>Scan a bill</b><small>Photo or PDF, auto-filled</small></button>
-<button class="tile" onclick="go('rep')">📊<b>View reports</b><small>Insights &amp; trends</small></button>
-<button class="tile" onclick="go('price')">🏷️<b>Price tracker</b><small>See price changes</small></button>
-<button class="tile" onclick="go('bills')">🔔<b>Bills &amp; subscriptions</b><small>Rent, EB, mobile &amp; more</small></button>
-<button class="tile" onclick="go('prod')">🛒<b>My products</b><small>Add custom items</small></button></div>
-<div class="head"><b>Recent purchases</b><button class="link" onclick="go('hist')">View all</button></div>
-<div class="card">${S.items.length?[...S.items].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id).slice(0,5).map(row).join(""):empty("No purchases yet. Tap + to add your first one.")}</div>${gcard()}`}
+  <script>
+    // --- Master Catalog ---
+    const P = [
+      ["Rent", "🏠", "Bills & Utilities"],
+      ["Electricity", "⚡", "Bills & Utilities"],
+      ["Mobile & Internet", "📶", "Bills & Utilities"],
+      ["Subscriptions", "🔁", "Bills & Utilities"],
+      ["Insurance", "🛡️", "Bills & Utilities"],
+      ["Loan / EMI", "🏦", "Financial & EMI"],
+      ["Other bills", "🧾", "Bills & Utilities"],
+      ["Rice", "🍚", "Grains"],
+      ["Dal", "🫘", "Grains"],
+      ["Wheat flour", "🌾", "Grains"],
+      ["Oil", "🛢️", "Grocery"],
+      ["Sugar", "🍬", "Grocery"],
+      ["Salt", "🧂", "Grocery"],
+      ["Spices", "🌶️", "Grocery"],
+      ["Tomato", "🍅", "Vegetables"],
+      ["Potato", "🥔", "Vegetables"],
+      ["Onion", "🧅", "Vegetables"],
+      ["Greens / Vegetables", "🥬", "Vegetables"],
+      ["Banana", "🍌", "Fruits"],
+      ["Apple", "🍎", "Fruits"],
+      ["Milk", "🥛", "Dairy"],
+      ["Eggs", "🥚", "Dairy"],
+      ["Curd / Butter", "🧈", "Dairy"],
+      ["Chicken", "🍗", "Meat & fish"],
+      ["Fish", "🐟", "Meat & fish"],
+      ["Restaurant / Dining", "🍽️", "Dining & Outing"],
+      ["Food Delivery", "🛵", "Dining & Outing"],
+      ["Fuel / Petrol", "⛽", "Transport"],
+      ["Bus / Cab / Metro", "🚕", "Transport"],
+      ["Medicines / Pharmacy", "💊", "Healthcare"],
+      ["Household", "🧴", "Household"],
+      ["Personal care", "🧼", "Personal care"],
+      ["Clothes & Footwear", "👗", "Shopping"],
+      ["Education Fees", "🎒", "Education"],
+      ["Miscellaneous", "🏷️", "Miscellaneous"]
+    ];
 
-function hist(){const it=inMo(mo);
-return `<h1>Purchase history</h1>${mnav()}<div class="card"><small>Total this month</small><div style="font-size:22px;font-weight:700">${fm(sum(it))}</div></div>
-<div class="card">${it.length?it.map(i=>`<div class="row"><span class="em">${emo(i.name)}</span><div class="g"><b>${esc(i.name)}</b><small>${i.qty} ${i.unit} · ${fm(i.price)}/${i.unit} · ${df(i.date)}${i.store?" · "+esc(i.store):""}${i.pay?" · "+esc(i.pay):""}</small>${i.notes?`<br><small>${esc(i.notes)}</small>`:""}</div><div class="r"><b>${fm(i.total)}</b></div><button class="del" aria-label="Delete" onclick="del(${i.id})">✕</button></div>`).join(""):empty("No purchases in this month.")}</div>`}
-function del(id){(S.del=S.del||[]).push(id);S.items=S.items.filter(i=>i.id!=id);save();go("hist")}
+    const CC = {
+      "Bills & Utilities": "#0ea5e9",
+      "Financial & EMI": "#ef4444",
+      "Grains": "#8b5cf6",
+      "Grocery": "#1d4ed8",
+      "Vegetables": "#16a34a",
+      "Fruits": "#f97316",
+      "Dairy": "#06b6d4",
+      "Meat & fish": "#ec4899",
+      "Dining & Outing": "#f43f5e",
+      "Transport": "#64748b",
+      "Healthcare": "#10b981",
+      "Household": "#eab308",
+      "Personal care": "#a855f7",
+      "Shopping": "#fb7185",
+      "Education": "#3b82f6",
+      "Miscellaneous": "#94a3b8"
+    };
 
-function add(){const sg=scanGuess;scanGuess=null;
-return `<h1>Add purchase</h1>${scanImg?`<div class="card"><div class="head"><b>Verify against your bill</b><button class="link" onclick="scanImg=null;go('add')">Remove</button></div><img src="${scanImg}" style="max-width:100%;border-radius:10px"><small style="display:block;margin-top:6px">Check the product, amount and date below before saving.</small></div>`:""}
-<div class="head"><b>Choose a product</b><button class="link" onclick="go('prod')">Add custom product</button></div><div class="chips">${allP().map((p,i)=>`<button class="chip" onclick="pick(${i})"><span>${p[1]}</span>${p[0]}</button>`).join("")}</div>
-<div class="card"><label style="margin-top:0">Product</label><input id="nm" value="${sg&&sg.merchant?esc(sg.merchant):""}" placeholder="Pick above or type a name" maxlength="40">
-<label>Category</label><select id="ct">${Object.keys({...CC,...BC}).map(c=>`<option>${c}</option>`).join("")}</select>
-<label>Store</label><input id="sto" list="stl" maxlength="40" placeholder="e.g. Big Bazaar"><datalist id="stl">${[...new Set(S.items.map(i=>i.store).filter(Boolean))].map(x=>`<option value="${esc(x)}">`).join("")}</datalist>
-<label>Quantity</label><div class="f"><input id="q" type="number" inputmode="decimal" value="1" min="0" step="any" oninput="tot()"><select id="u"><option>kg</option><option>g</option><option>L</option><option>ml</option><option>pcs</option></select></div>
-<label>Price per unit (₹)</label><input id="pr" type="number" inputmode="decimal" value="${sg&&sg.amount?sg.amount:""}" min="0" step="any" oninput="tot()" placeholder="e.g. 40">
-<label>Date</label><input id="dt" type="date" value="${sg&&sg.date?sg.date:today()}">
-<label>Payment mode</label><select id="pm"><option>Cash</option><option>UPI</option><option>Card</option></select>
-<label>Notes (optional)</label><input id="nt" maxlength="80" value="${scanImg?"Scanned from bill":""}" placeholder="e.g. Fresh and good quality">
-<div class="total"><span>Total amount</span><span id="tt">${fm(sg&&sg.amount?sg.amount:0)}</span></div><div class="err" id="err"></div>
-<button class="btn" onclick="addP()">Save purchase</button></div>`}
-function pick(i){const p=allP()[i];$("#nm").value=p[0];$("#ct").value=p[2];if(p[3])$("#u").value=p[3];document.querySelectorAll(".chip").forEach((c,j)=>c.classList.toggle("on",j==i))}
-function tot(){$("#tt").textContent=fm((+$("#q").value||0)*(+$("#pr").value||0))}
-function addP(){const g=id=>$("#"+id).value,name=g("nm").trim(),qty=+g("q"),price=+g("pr");
-if(!name||!(qty>0)||g("pr")===""||!(price>=0)||!g("dt")){$("#err").textContent="Enter a product, a quantity above 0, a price and a date.";return}
-S.items.push({id:Date.now(),name,cat:g("ct"),qty,unit:g("u"),price,total:qty*price,date:g("dt"),pay:g("pm"),store:g("sto").trim(),notes:g("nt").trim()});save();scanImg=null;mo=g("dt").slice(0,7);go("hist")}
+    const BC = {
+      "Rent": "#0ea5e9",
+      "Electricity": "#ca8a04",
+      "Mobile & Internet": "#6366f1",
+      "Subscriptions": "#14b8a6",
+      "Insurance": "#64748b",
+      "Loan / EMI": "#ef4444",
+      "Other bills": "#a855f7"
+    };
 
-const SC=["#1d4ed8","#16a34a","#f97316","#8b5cf6","#ec4899","#06b6d4"];let stf="all",curSt=[];
-const nz=i=>i.unit=="g"?{p:i.price*1000,u:"kg"}:i.unit=="ml"?{p:i.price*1000,u:"L"}:{p:i.price,u:i.unit};
-const sn=i=>i.store||"Unknown store";
-function pf(k){stf=k<0?"all":curSt[k];go("price")}
-function price(){const names=[...new Set(S.items.map(i=>i.name))].sort();
-if(!names.length)return `<h1>Price tracker</h1>${empty("Add a few purchases and you'll see how prices change over time and by store.")}`;
-if(!names.includes(sel))sel=names[0];
-const raw=S.items.filter(i=>i.name==sel).sort((a,b)=>a.date.localeCompare(b.date)||a.id-b.id),u=nz(raw[raw.length-1]).u;
-const it=raw.map(i=>({...i,...nz(i)})).filter(i=>i.u==u),stores=[...new Set(it.map(sn))];curSt=stores;
-if(!stores.includes(stf))stf="all";
-const shown=stf=="all"?stores:[stf],pts=it.filter(i=>shown.includes(sn(i))),last=pts[pts.length-1],prev=pts[pts.length-2];
-const ps=pts.map(i=>i.p),mx=Math.max(...ps),mn=Math.min(...ps),avg=ps.reduce((a,b)=>a+b,0)/ps.length;
-const ch=prev&&prev.p?(last.p-prev.p)/prev.p*100:null;
-const t0=+new Date(pts[0].date),t1=+new Date(last.date),rg=mx-mn||1,X=d=>t1==t0?160:36+(new Date(d)-t0)/(t1-t0)*250,Y=p=>92-(p-mn)/rg*66;
-const svg=`<svg viewBox="0 0 310 125" width="100%" role="img" aria-label="Price history by store"><text x="30" y="${Y(mx)+3}" text-anchor="end">${+mx.toFixed(1)}</text><text x="30" y="${Y(mn)+3}" text-anchor="end">${+mn.toFixed(1)}</text><line x1="34" x2="300" y1="${Y(mx)}" y2="${Y(mx)}" stroke="var(--line)"/><line x1="34" x2="300" y1="${Y(mn)}" y2="${Y(mn)}" stroke="var(--line)"/>${stores.filter(x=>shown.includes(x)).map(x=>{const c=SC[stores.indexOf(x)%6],a=pts.filter(i=>sn(i)==x);return (a.length>1?`<polyline points="${a.map(i=>X(i.date)+","+Y(i.p)).join(" ")}" fill="none" stroke="${c}" stroke-width="2.5"/>`:"")+a.map(i=>`<circle cx="${X(i.date)}" cy="${Y(i.p)}" r="3.5" fill="${c}"><title>${esc(x)} · ${df(i.date)} · ${fm(i.p)}/${u}</title></circle>`).join("")}).join("")}<text x="36" y="118">${df(pts[0].date)}</text><text x="300" y="118" text-anchor="end">${df(last.date)}</text></svg>`;
-const st=stores.map(x=>{const a=it.filter(i=>sn(i)==x);return{s:x,l:a[a.length-1].p,avg:a.reduce((q,i)=>q+i.p,0)/a.length,lo:Math.min(...a.map(i=>i.p)),n:a.length}}).sort((a,b)=>a.l-b.l);
-return `<h1>Price tracker</h1><select onchange="sel=this.value;stf='all';go('price')" aria-label="Product">${names.map(n=>`<option ${n==sel?"selected":""}>${esc(n)}</option>`).join("")}</select>
-<div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0"><button class="pill ${stf=="all"?"on":""}" onclick="pf(-1)">All stores</button>${stores.map((x,k)=>`<button class="pill ${stf==x?"on":""}" onclick="pf(${k})">${esc(x)}</button>`).join("")}</div>
-<div class="card"><div class="head"><span style="font-size:30px">${emo(sel)}</span>${ch===null?"":`<span class="${ch>0?"up":"dn"}">${ch>0?"▲ +":"▼ "}${ch.toFixed(1)}% vs previous buy</span>`}</div>
-<div class="two"><div><small>Latest</small><br><b>${fm(last.p)}/${u}</b></div><div><small>Lowest</small><br><b>${fm(mn)}</b></div><div><small>Average</small><br><b>${fm(avg)}</b></div><div style="text-align:right"><small>Highest</small><br><b>${fm(mx)}</b></div></div></div>
-<div class="card"><b>Price per ${u}</b>${pts.length>1?svg:empty("Buy this again to see the price graph.")}${stores.length>1&&stf=="all"?`<div style="display:flex;gap:12px;flex-wrap:wrap">${stores.map((x,k)=>`<div class="leg"><i style="background:${SC[k%6]}"></i>${esc(x)}</div>`).join("")}</div>`:""}</div>
-<div class="card"><b>Store comparison</b> <small>latest price per ${u}</small>${stores.length>1?st.map((x,k)=>`<div class="row"><i style="width:10px;height:10px;border-radius:3px;background:${SC[stores.indexOf(x.s)%6]}"></i><div class="g"><b>${esc(x.s)}</b><small>Avg ${fm(x.avg)} · Low ${fm(x.lo)} · ${x.n} buy${x.n>1?"s":""}</small></div><div class="r"><b>${fm(x.l)}</b><small class="${k?"up":"dn"}">${k?"+"+fm(x.l-st[0].l)+" vs cheapest":"Cheapest"}</small></div></div>`).join(""):empty("Log "+esc(sel)+" from another store to compare prices.")}</div>
-<div class="card"><b>Previous purchases</b>${[...pts].reverse().map(i=>`<div class="row"><div class="g">${df(i.date)}<br><small>${esc(sn(i))}</small></div><b>${fm(i.p)}/${u}</b></div>`).join("")}</div>`}
+    const BE = {
+      "Rent": "🏠",
+      "Electricity": "⚡",
+      "Mobile & Internet": "📶",
+      "Subscriptions": "🔁",
+      "Insurance": "🛡️",
+      "Loan / EMI": "🏦",
+      "Other bills": "🧾"
+    };
 
-function prod(){return `<h1>My products</h1><div class="card"><label style="margin-top:0">Product name</label><input id="pn" maxlength="40" placeholder="e.g. Idli batter">
-<div class="f"><div><label>Emoji</label><input id="pe" value="🛒" maxlength="4"></div><div><label>Default unit</label><select id="pu"><option>kg</option><option>g</option><option>L</option><option>ml</option><option>pcs</option></select></div></div>
-<label>Category</label><select id="pc">${Object.keys(CC).map(c=>`<option>${c}</option>`).join("")}</select><div class="err" id="perr"></div><button class="btn" onclick="addProd()">Save product</button></div>
-<div class="card"><b>Your custom products</b>${S.prods.length?S.prods.map((p,k)=>`<div class="row"><span class="em">${esc(p.emo)}</span><div class="g"><b>${esc(p.name)}</b><small>${p.cat} · per ${p.unit}</small></div><button class="del" aria-label="Delete" onclick="delProd(${k})">✕</button></div>`).join(""):empty("No custom products yet. Add one above and it shows up when you add a purchase.")}</div>
-<button class="link" onclick="go('add')">Back to add purchase</button>`}
-function addProd(){const n=$("#pn").value.trim();if(!n){$("#perr").textContent="Enter a product name.";return}
-if(allP().some(p=>p[0].toLowerCase()==n.toLowerCase())){$("#perr").textContent="That product is already in your list.";return}
-S.pdel=(S.pdel||[]).filter(x=>x!=n.toLowerCase());S.prods.push({name:n,emo:$("#pe").value.trim()||"🛒",cat:$("#pc").value,unit:$("#pu").value});save();go("prod")}
-function delProd(k){(S.pdel=S.pdel||[]).push(S.prods[k].name.toLowerCase());S.prods.splice(k,1);save();go("prod")}
+    const AllC = () => ({ ...CC, ...BC });
 
-function periodRange(type,anchor){const d=new Date(anchor+"T00:00");
-if(type=="day")return[anchor,anchor];
-if(type=="week"){const dow=d.getDay();const s=new Date(d);s.setDate(d.getDate()-dow);const e=new Date(s);e.setDate(s.getDate()+6);return[ymd(s),ymd(e)]}
-if(type=="year"){const y=d.getFullYear();return[y+"-01-01",y+"-12-31"]}
-const y=d.getFullYear(),m=d.getMonth();return[ymd(new Date(y,m,1)),ymd(new Date(y,m+1,0))]}
-function prevRange(type,cur,anchor){if(type=="custom"){const len=(new Date(cur[1])-new Date(cur[0]))/864e5+1;return[addDays(cur[0],-len),addDays(cur[1],-len)]}
-const d=new Date(anchor+"T00:00");
-if(type=="day")d.setDate(d.getDate()-1);else if(type=="week")d.setDate(d.getDate()-7);else if(type=="year")d.setFullYear(d.getFullYear()-1);else d.setMonth(d.getMonth()-1,1);
-return periodRange(type,ymd(d))}
-function rangeLabel(type,cur,anchor){if(type=="day")return df(cur[0]);
-if(type=="week")return df(cur[0])+" – "+df(cur[1]);
-if(type=="year")return String(new Date(anchor+"T00:00").getFullYear());
-if(type=="month")return new Date(anchor+"T00:00").toLocaleDateString("en-IN",{month:"long",year:"numeric"});
-return df(cur[0])+" – "+df(cur[1])}
-const inRange=r=>S.items.filter(i=>i.date>=r[0]&&i.date<=r[1]);
-function shiftRep(n){if(repType=="custom"){const len=(new Date(repTo||today())-new Date(repFrom||today()))/864e5+1;repFrom=addDays(repFrom||today(),n*len);repTo=addDays(repTo||today(),n*len);return go("rep")}
-const d=new Date(repAnchor+"T00:00");
-if(repType=="day")d.setDate(d.getDate()+n);else if(repType=="week")d.setDate(d.getDate()+7*n);else if(repType=="year")d.setFullYear(d.getFullYear()+n);else d.setMonth(d.getMonth()+n,1);
-repAnchor=ymd(d);go("rep")}
-function rep(){if(repType=="custom"){if(!repFrom)repFrom=addDays(today(),-6);if(!repTo)repTo=today()}
-const cur=repType=="custom"?[repFrom<=repTo?repFrom:repTo,repFrom<=repTo?repTo:repFrom]:periodRange(repType,repAnchor);
-const prev=prevRange(repType,cur,repAnchor);
-const curIt=inRange(cur),prevIt=inRange(prev),t=sum(curIt),pt=sum(prevIt);
-const diff=pt?((t-pt)/pt*100):(t?100:0);
-const chips=`<div class="chips" style="grid-template-columns:repeat(5,1fr)">${[["day","Day"],["week","Week"],["month","Month"],["year","Year"],["custom","Custom"]].map(([k,l])=>`<button class="chip ${repType==k?"on":""}" onclick="repType='${k}';go('rep')">${l}</button>`).join("")}</div>`;
-const nav=repType=="custom"?`<div class="f" style="margin-bottom:12px"><div><label style="margin-top:0">From</label><input type="date" value="${cur[0]}" onchange="repFrom=this.value;go('rep')"></div><div><label style="margin-top:0">To</label><input type="date" value="${cur[1]}" onchange="repTo=this.value;go('rep')"></div></div>`:`<div class="mnav"><button onclick="shiftRep(-1)">‹</button><span>${rangeLabel(repType,cur,repAnchor)}</span><button onclick="shiftRep(1)">›</button></div>`;
-if(!curIt.length)return `<h1>Reports</h1>${chips}${nav}${empty("No purchases in this period.")}`;
-const by={};curIt.forEach(i=>by[i.cat]=(by[i.cat]||0)+i.total);const pby={};prevIt.forEach(i=>pby[i.cat]=(pby[i.cat]||0)+i.total);
-const cats=Object.entries(by).sort((a,b)=>b[1]-a[1]);const ac=AllC();
-const C=2*Math.PI*40;let acc=0;
-const arcs=cats.map(([c,a])=>{const l=a/t*C,s=`<circle cx="60" cy="60" r="40" fill="none" stroke="${ac[c]||"#888"}" stroke-width="18" stroke-dasharray="${l} ${C-l}" stroke-dashoffset="${-acc}" transform="rotate(-90 60 60)"/>`;acc+=l;return s}).join("");
-const days=[];{let d=cur[0],n=0;while(d<=cur[1]&&n<400){days.push(d);d=addDays(d,1);n++}}
-let labels=days,dv;
-if(days.length<=12){dv=days.map(d=>sum(S.items.filter(i=>i.date==d)));labels=days.map(d=>d.slice(8))}
-else{const bc=Math.min(10,days.length),sz=Math.ceil(days.length/bc),groups=[];for(let i=0;i<days.length;i+=sz)groups.push(days.slice(i,i+sz));
-dv=groups.map(g=>sum(S.items.filter(i=>g.includes(i.date))));labels=groups.map(g=>df(g[0]).slice(0,6))}
-const mx=Math.max(...dv,1),n=dv.length,bw=Math.max(8,250/n-4);
-const bars=dv.map((x,k)=>{const h=x/mx*80,xx=12+k*(270/n);return `<rect x="${xx}" y="${95-h}" width="${bw}" height="${h}" rx="4" fill="var(--blue)"/><text x="${xx+bw/2}" y="108" text-anchor="middle">${esc(labels[k])}</text>`}).join("");
-return `<h1>Reports</h1>${chips}${nav}
-<div class="card"><small>Total spent</small><div style="font-size:26px;font-weight:700">${fm(t)}</div><small class="${diff>0?"up":diff<0?"dn":""}">${diff==0?"Same as":(diff>0?"▲ +"+diff.toFixed(1)+"% vs":"▼ "+Math.abs(diff).toFixed(1)+"% vs")} previous ${repType=="custom"?"period":repType} (${fm(pt)})</small></div>
-<div class="card"><div class="f" style="align-items:center"><svg viewBox="0 0 120 120" width="120" style="flex:none" role="img" aria-label="Spending by category">${arcs}<text x="60" y="58" text-anchor="middle">Total</text><text x="60" y="70" text-anchor="middle" style="font-weight:700;fill:var(--ink);font-size:10px">${fm(t)}</text></svg>
-<div>${cats.map(([c,a])=>{const pa=pby[c]||0,d=pa?((a-pa)/pa*100):(a?100:0);return `<div class="leg"><i style="background:${ac[c]||"#888"}"></i>${c}<b>${fm(a)}</b></div><div style="font-size:11px;color:var(--mute);margin:-4px 0 6px 18px">${pa?((d>0?"▲ +":"▼ ")+Math.abs(d).toFixed(0)+"% vs prev"):"new this period"}</div>`}).join("")}</div></div></div>
-<div class="card"><b>Spending over time</b><svg viewBox="0 0 290 115" width="100%" role="img" aria-label="Spending over time">${bars}</svg></div>`}
+    let S = null;
+    try { S = JSON.parse(localStorage.getItem("st")); } catch (e) {}
+    S = S || { budget: 25000, items: [] };
+    S.prods = S.prods || [];
+    S.bills = S.bills || [];
 
-function paidToday(b){return S.items.some(i=>i.date==today()&&i.name==b.name&&i.cat==b.category)}
-function nextDue(b){const t=today();
-if(b.freq=="weekly"){const d=new Date(t+"T00:00");const diff=((b.day-d.getDay())+7)%7;d.setDate(d.getDate()+diff);return ymd(d)}
-if(b.freq=="yearly"){let y=new Date(t+"T00:00").getFullYear();let dim=new Date(y,b.month,0).getDate();let ds=y+"-"+String(b.month).padStart(2,"0")+"-"+String(Math.min(b.day,dim)).padStart(2,"0");if(ds<t){y++;dim=new Date(y,b.month,0).getDate();ds=y+"-"+String(b.month).padStart(2,"0")+"-"+String(Math.min(b.day,dim)).padStart(2,"0")}return ds}
-let y=new Date(t+"T00:00").getFullYear(),m=new Date(t+"T00:00").getMonth()+1;let dim=new Date(y,m,0).getDate();let ds=y+"-"+String(m).padStart(2,"0")+"-"+String(Math.min(b.day,dim)).padStart(2,"0");
-if(ds<t){m++;if(m>12){m=1;y++}dim=new Date(y,m,0).getDate();ds=y+"-"+String(m).padStart(2,"0")+"-"+String(Math.min(b.day,dim)).padStart(2,"0")}
-return ds}
-function freqTxt(b){if(b.freq=="monthly")return "Monthly on day "+b.day;if(b.freq=="weekly")return "Weekly on "+["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][b.day];return "Yearly on "+["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][b.month]+" "+b.day}
-function bfHtml(f){if(f=="weekly")return `<label>Day of week</label><select id="bd">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d,i)=>`<option value="${i}">${d}</option>`).join("")}</select>`;
-if(f=="yearly")return `<div class="f"><div><label>Month</label><select id="bm">${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"].map((mn,i)=>`<option value="${i+1}">${mn}</option>`).join("")}</select></div><div><label>Day</label><input id="bd" type="number" min="1" max="31" value="1"></div></div>`;
-return `<label>Day of month</label><input id="bd" type="number" min="1" max="31" value="1">`}
-function bfC(){$("#bfx").innerHTML=bfHtml($("#bf").value)}
-function markPaid(id){const b=S.bills.find(x=>x.id==id);if(!b)return;S.items.push({id:Date.now(),name:b.name,cat:b.category,qty:1,unit:"pcs",price:b.amount,total:b.amount,date:today(),pay:"",store:"",notes:"Recurring payment"});save();go(v)}
-function addBill(){const n=$("#bn").value.trim(),amt=+$("#ba").value,freq=$("#bf").value;
-if(!n||!(amt>0)){$("#berr").textContent="Enter a name and an amount above 0.";return}
-const b={id:Date.now(),name:n,category:$("#bc").value,amount:amt,freq,notes:$("#bnt").value.trim()};
-if(freq=="weekly")b.day=+$("#bd").value;else if(freq=="yearly"){b.month=+$("#bm").value;b.day=Math.min(31,Math.max(1,+$("#bd").value||1))}else b.day=Math.min(31,Math.max(1,+$("#bd").value||1));
-S.bills.push(b);save();go("bills")}
-function delBill(id){S.bills=S.bills.filter(b=>b.id!=id);save();go("bills")}
-function bills(){const list=[...S.bills].map(b=>({...b,nd:nextDue(b)})).sort((a,b)=>a.nd.localeCompare(b.nd));
-const notifSupported="Notification" in window,notifOn=notifSupported&&Notification.permission=="granted";
-return `<h1>Bills &amp; subscriptions</h1>
-<div class="card"><div class="head"><b>Reminders</b>${notifSupported?(notifOn?`<small>On</small>`:`<button class="link" onclick="askNotif()">Enable reminders</button>`):`<small>Not supported here</small>`}</div><small>Reminders check when you open the app — there's no background alert without a server, so open the app near the due date.</small></div>
-<div class="card"><label style="margin-top:0">Name</label><input id="bn" maxlength="40" placeholder="e.g. House rent">
-<label>Category</label><select id="bc">${Object.keys(BC).map(c=>`<option>${c}</option>`).join("")}</select>
-<label>Amount (₹)</label><input id="ba" type="number" inputmode="decimal" min="0" step="any" placeholder="e.g. 12000">
-<label>Repeats</label><select id="bf" onchange="bfC()"><option value="monthly">Monthly</option><option value="weekly">Weekly</option><option value="yearly">Yearly</option></select>
-<div id="bfx">${bfHtml("monthly")}</div>
-<label>Notes (optional)</label><input id="bnt" maxlength="60">
-<div class="err" id="berr"></div><button class="btn" onclick="addBill()">Save bill</button></div>
-<div class="card"><b>Your recurring bills</b>${list.length?list.map(b=>`<div class="row"><span class="em">${BE[b.category]||"🧾"}</span><div class="g"><b>${esc(b.name)}</b><small>${esc(b.category)} · ${freqTxt(b)}</small><small>${b.nd==today()?(paidToday(b)?"Paid today":"Due today"):(b.nd<addDays(today(),3)?"Due "+df(b.nd):"Next "+df(b.nd))}</small></div><div class="r"><b>${fm(b.amount)}</b>${!paidToday(b)?`<button class="link" style="display:block;margin-top:4px" onclick="markPaid(${b.id})">Mark paid</button>`:""}</div><button class="del" aria-label="Delete" onclick="delBill(${b.id})">✕</button></div>`).join(""):empty("No recurring bills yet. Add rent, electricity, mobile or subscriptions above.")}</div>`}
-function askNotif(){if(!("Notification" in window))return;Notification.requestPermission().then(()=>go("bills"))}
-function checkReminders(){if(!("Notification" in window)||Notification.permission!=="granted")return;
-let last=null;try{last=localStorage.getItem("notif-date")}catch(e){}
-if(last==today())return;
-const due=S.bills.filter(b=>!paidToday(b)&&nextDue(b)<=addDays(today(),1));
-if(due.length){try{new Notification("Bills due",{body:due.map(b=>b.name+" – "+fm(b.amount)).join(", ").slice(0,180)})}catch(e){}}
-try{localStorage.setItem("notif-date",today())}catch(e){}}
-function freshAdd(){scanImg=null;scanGuess=null;go("add")}
-function imgToCanvas(file){return new Promise((res,rej)=>{const img=new Image();const url=URL.createObjectURL(file);
-img.onload=()=>{const sc=Math.min(1,1400/img.width);const c=document.createElement("canvas");c.width=Math.round(img.width*sc);c.height=Math.round(img.height*sc);c.getContext("2d").drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(url);res(c)};
-img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("img"))};img.src=url})}
-let pdfjsReady=null;
-function loadPdfJs(){if(pdfjsReady)return pdfjsReady;
-pdfjsReady=new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.js";
-s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js";res()};
-s.onerror=()=>rej(new Error("pdfjs"));document.head.appendChild(s)});return pdfjsReady}
-async function pdfToCanvas(file){await loadPdfJs();const buf=await file.arrayBuffer();
-const doc=await window.pdfjsLib.getDocument({data:buf}).promise;const page=await doc.getPage(1);
-const vp0=page.getViewport({scale:1}),scale=Math.min(2,1400/vp0.width),vp=page.getViewport({scale});
-const c=document.createElement("canvas");c.width=vp.width;c.height=vp.height;
-await page.render({canvasContext:c.getContext("2d"),viewport:vp}).promise;return c}
-let tessReady=null;
-function loadTess(){if(tessReady)return tessReady;
-tessReady=new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
-s.onload=()=>res();s.onerror=()=>rej(new Error("tesseract"));document.head.appendChild(s)});return tessReady}
-async function ocrText(canvas,statusEl){await loadTess();
-const r=await window.Tesseract.recognize(canvas,"eng",{logger:m=>{if(statusEl&&m.status)statusEl.innerHTML="<small>"+m.status+(m.progress?" "+Math.round(m.progress*100)+"%":"")+"</small>"}});
-return (r&&r.data&&r.data.text)||""}
-function parseBill(text){const lines=text.split("\n").map(s=>s.trim()).filter(Boolean);
-const re=/(?:rs\.?|inr|₹)?\s*([0-9][0-9,]*\.?[0-9]{0,2})/gi;const nums=[];
-lines.forEach(l=>{if(/total|amount|grand|net|balance due|bill amt|bill amount/i.test(l)){let m,best=null;re.lastIndex=0;while(m=re.exec(l)){const vv=parseFloat(m[1].replace(/,/g,""));if(!isNaN(vv)&&vv>0)best=vv}if(best!=null)nums.push({v:best,w:3})}});
-if(!nums.length){lines.forEach(l=>{let m,best=null;re.lastIndex=0;while(m=re.exec(l)){const vv=parseFloat(m[1].replace(/,/g,""));if(!isNaN(vv)&&vv>0&&vv<1000000)best=vv}if(best!=null)nums.push({v:best,w:1})})}
-nums.sort((a,b)=>b.w-a.w||b.v-a.v);
-const amount=nums.length?nums[0].v:null;
-let date=null;const dre=/([0-3]?\d)[\/\-.]([01]?\d)[\/\-.]((?:20)?\d\d)/;
-for(const l of lines){const m=l.match(dre);if(m){let d=+m[1],mo2=+m[2],yy=+m[3];if(yy<100)yy+=2000;if(d>=1&&d<=31&&mo2>=1&&mo2<=12){date=yy+"-"+String(mo2).padStart(2,"0")+"-"+String(d).padStart(2,"0");break}}}
-const merchant=lines.find(l=>l.length>2&&l.length<40&&!/^\d/.test(l)&&!dre.test(l))||"";
-return{amount,date,merchant}}
-async function onBillFile(file){if(!file)return;const st=$("#scanStatus");
-st.innerHTML="<small>Reading the bill…</small>";
-try{const canvas=file.type=="application/pdf"?await pdfToCanvas(file):await imgToCanvas(file);
-scanImg=canvas.toDataURL("image/jpeg",0.85);
-if($("#scanPrev"))$("#scanPrev").innerHTML=`<img src="${scanImg}" style="max-width:100%;border-radius:10px;margin-top:8px">`;
-let text="";try{text=await ocrText(canvas,st)}catch(e){}
-scanGuess=text?parseBill(text):{};
-if($("#scanStatus"))$("#scanStatus").innerHTML=text?"<small>Got it — check the details on the next screen.</small>":"<small>Couldn't auto-read the text — add the details on the next screen.</small>";
-setTimeout(()=>go("add"),500);
-}catch(e){if($("#scanStatus"))$("#scanStatus").innerHTML="<small>Couldn't open that file. Try a clearer photo or a different file.</small>"}}
-function scan(){return `<h1>Scan a bill</h1><div class="card">
-<label style="margin-top:0">Photo or PDF of the bill</label>
-<input type="file" accept="image/*,application/pdf" onchange="onBillFile(this.files[0])">
-<div id="scanStatus" style="margin-top:8px"><small>Pick a clear photo, or a PDF, of your receipt. We'll try to read the total and date — you'll check everything on the next screen before it's saved.</small></div>
-<div id="scanPrev"></div>
-</div>`}
+    const raw = () => { try { localStorage.setItem("st", JSON.stringify(S)); } catch (e) {} };
+    const save = () => { S.upd = Date.now(); raw(); if (tok) { clearTimeout(timer); timer = setTimeout(sync, 2500); } };
+    const $ = s => document.querySelector(s);
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const fm = n => "₹" + (+(+n).toFixed(2)).toLocaleString("en-IN");
+    const df = d => new Date(d + "T00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    const allP = () => [...P, ...S.prods.map(p => [p.name, p.emo, p.cat, p.unit])];
+    const emo = n => (allP().find(p => p[0].toLowerCase() == String(n).toLowerCase()) || [0, "🛒"])[1];
+    const today = () => { const d = new Date(); return new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+    const ymd = d => new Date(d - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+    const addDays = (ds, n) => { const d = new Date(ds + "T00:00"); d.setDate(d.getDate() + n); return ymd(d); };
 
-// ---------- Google Drive sync (stores one JSON file in this app's hidden Drive app-data folder) ----------
-const CLIENT_ID="386974473840-bhnhm2qv91iq87c3lt78hp8b3gs2tp61.apps.googleusercontent.com",FN="spend-tracker.json";
-let tok=null,tc=null,timer=null;
-const ls=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
-const cfg=()=>!CLIENT_ID.startsWith("PASTE");
-let sst=!cfg()?"Not set up yet. Add your Google client ID (see README).":ls("gd")?"Reconnecting…":"Not connected. Sign in to back up to your Google Drive.";
-const setSt=t=>{sst=t;const e=$("#gst");if(e)e.textContent=t};
-const gcard=()=>`<div class="card"><div class="head"><b>Google Drive backup</b>${tok?`<button class="link" onclick="sync()">Sync now</button>`:`<button class="link" onclick="gIn()">${ls("gd")?"Reconnect":"Sign in"}</button>`}</div><small id="gst">${esc(sst)}</small></div>`;
-function merge(a,b){const del=new Set([...(a.del||[]),...(b.del||[])]),pd=new Set([...(a.pdel||[]),...(b.pdel||[])]),m=new Map(),pm=new Map();
-[...(b.items||[]),...(a.items||[])].forEach(i=>m.set(i.id,i));[...(b.prods||[]),...(a.prods||[])].forEach(p=>pm.set(p.name.toLowerCase(),p));
-const newer=(a.upd||0)>=(b.upd||0);
-return{budget:newer?a.budget:b.budget,items:[...m.values()].filter(i=>!del.has(i.id)),prods:[...pm.values()].filter(p=>!pd.has(p.name.toLowerCase())),bills:newer?(a.bills||b.bills||[]):(b.bills||a.bills||[]),del:[...del],pdel:[...pd],upd:Math.max(a.upd||0,b.upd||0)}}
-function gInit(){if(tc)return true;if(!cfg()||!(window.google&&google.accounts&&google.accounts.oauth2))return false;
-tc=google.accounts.oauth2.initTokenClient({client_id:CLIENT_ID,scope:"https://www.googleapis.com/auth/drive.appdata",
-callback:r=>{if(r&&r.access_token){tok=r.access_token;try{localStorage.setItem("gd","1")}catch(e){}if(v=="home")go("home");sync()}else setSt("Sign-in failed. Try again.")},
-error_callback:()=>setSt("Sign-in was cancelled or blocked. Tap Reconnect to try again.")});return true}
-function gIn(){if(!cfg()){setSt("Add your Google client ID in index.html first (see README).");return}
-if(!gInit()){setSt("Google sign-in is still loading. Check your connection and try again.");return}tc.requestAccessToken()}
-async function dr(url,o={}){const r=await fetch(url,{...o,headers:{Authorization:"Bearer "+tok,...(o.headers||{})}});if(r.status==401){tok=null;throw new Error("expired")}if(!r.ok)throw new Error("Drive "+r.status);return r}
-async function sync(){if(!tok)return;setSt("Syncing…");
-try{const q=encodeURIComponent("name='"+FN+"'");
-const l=await(await dr("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q="+q+"&fields=files(id)")).json();
-const id=l.files[0]&&l.files[0].id;
-if(id){const rm=await(await dr("https://www.googleapis.com/drive/v3/files/"+id+"?alt=media")).json();S=merge(S,rm);S.prods=S.prods||[];S.bills=S.bills||[];raw()}
-const body=JSON.stringify(S);
-if(id)await dr("https://www.googleapis.com/upload/drive/v3/files/"+id+"?uploadType=media",{method:"PATCH",headers:{"Content-Type":"application/json"},body});
-else{const b="ss"+Date.now(),mp=`--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({name:FN,parents:["appDataFolder"]})}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`;
-await dr("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",{method:"POST",headers:{"Content-Type":"multipart/related; boundary="+b},body:mp})}
-setSt("Synced at "+new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}));if(v=="home"||v=="hist"||v=="bills")go(v)}
-catch(e){setSt(e.message=="expired"?"Session expired. Tap Reconnect.":"Sync failed. Check your connection and tap Sync now.");if(v=="home")go("home");setSt(sst)}}
-addEventListener("load",()=>{if(ls("gd")&&gInit())tc.requestAccessToken({prompt:"none"});if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js").catch(()=>{})});
+    let v = "home", mo = today().slice(0, 7), sel = null, scanImg = null, scanGuess = null, repType = "month", repAnchor = today(), repFrom = null, repTo = null;
+    const inMo = m => S.items.filter(i => i.date.startsWith(m)).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
+    const sum = a => a.reduce((s, i) => s + i.total, 0);
+    const row = i => `<div class="row"><span class="em">${emo(i.name)}</span><div class="g"><b>${esc(i.name)}</b><small>${i.qty} ${i.unit} · ${fm(i.price)}/${i.unit}${i.store ? " · " + esc(i.store) : ""}</small></div><div class="r"><b>${fm(i.total)}</b><small>${df(i.date)}</small></div></div>`;
+    const shift = d => { const [y, m] = mo.split("-").map(Number); const n = new Date(y, m - 1 + d, 1); mo = n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0"); go(v); };
+    const mnav = () => `<div class="mnav"><button onclick="shift(-1)">‹</button><span>${new Date(mo + "-01T00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</span><button onclick="shift(1)">›</button></div>`;
+    const empty = t => `<div class="empty">${t}</div>`;
 
-const V={home,hist,add,price,rep,prod,scan,bills};
-const N=[["home","🏠","Home"],["hist","🧾","History"],["add"],["price","🏷️","Prices"],["rep","📊","Reports"]];
-function go(x){v=x;$("#app").innerHTML=V[x]();$("#nav").innerHTML=N.map(n=>n[1]?`<button class="${n[0]==v?"on":""}" onclick="go('${n[0]}')"><span>${n[1]}</span>${n[2]}</button>`:`<button class="plus" aria-label="Add purchase" onclick="freshAdd()">+</button>`).join("");window.scrollTo(0,0)}
-go("home");
-checkReminders();
-document.addEventListener("visibilitychange",()=>{if(document.visibilityState=="visible")checkReminders()});
-</script></body></html>
+    function home() {
+      const cur = today().slice(0, 7), it = inMo(cur), t = sum(it), b = S.budget, left = b - t, p = Math.min(100, b > 0 ? (t / b) * 100 : 0);
+      const due = S.bills.filter(x => !paidToday(x) && nextDue(x) <= addDays(today(), 2));
+      return `<small>Welcome back</small><h1>Your spending</h1>
+      <div class="hero"><small>This month's spending</small><div class="big">${fm(t)}</div>
+      <div class="bar ${left < 0 ? "over" : ""}"><i style="width:${p}%"></i></div>
+      <div class="two"><div><small>Monthly budget</small><br>₹<input type="number" inputmode="decimal" value="${b}" onchange="S.budget=+this.value||0;save();go('home')" aria-label="Monthly budget"></div>
+      <div style="text-align:right"><small>${left < 0 ? "Over budget" : "Remaining"}</small><br><b>${fm(Math.abs(left))}</b></div></div></div>
+      ${due.length ? `<div class="card" style="border-color:#f59e0b"><b>⏰ ${due.length} bill${due.length > 1 ? "s" : ""} due soon</b>${due.map(x => `<div class="row"><span class="em">${BE[x.category] || "🧾"}</span><div class="g"><b>${esc(x.name)}</b><small>${nextDue(x) == today() ? "Due today" : "Due " + df(nextDue(x))}</small></div><div class="r"><b>${fm(x.amount)}</b></div></div>`).join("")}<button class="link" onclick="go('bills')">Manage bills</button></div>` : ""}
+      <div class="tiles"><button class="tile" onclick="freshAdd()">➕<b>Add purchase</b><small>Log what you bought</small></button>
+      <button class="tile" onclick="go('scan')">📷<b>Scan a bill</b><small>Photo or PDF, on-device OCR</small></button>
+      <button class="tile" onclick="go('rep')">📊<b>View reports</b><small>Insights &amp; trends</small></button>
+      <button class="tile" onclick="go('price')">🏷️<b>Price tracker</b><small>See price changes</small></button>
+      <button class="tile" onclick="go('bills')">🔔<b>Bills &amp; EMIs</b><small>Rent, EB, mobile &amp; more</small></button>
+      <button class="tile" onclick="go('prod')">🛒<b>My products</b><small>Add custom items</small></button></div>
+      <div class="head"><b>Recent purchases</b><button class="link" onclick="go('hist')">View all</button></div>
+      <div class="card">${S.items.length ? [...S.items].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 5).map(row).join("") : empty("No purchases yet. Tap + to add your first one.")}</div>${gcard()}`;
+    }
+
+    function hist() {
+      const it = inMo(mo);
+      return `<h1>Purchase history</h1>${mnav()}<div class="card"><small>Total this month</small><div style="font-size:22px;font-weight:700">${fm(sum(it))}</div></div>
+      <div class="card">${it.length ? it.map(i => `<div class="row"><span class="em">${emo(i.name)}</span><div class="g"><b>${esc(i.name)}</b><small>${i.qty} ${i.unit} · ${fm(i.price)}/${i.unit} · ${df(i.date)}${i.store ? " · " + esc(i.store) : ""}${i.pay ? " · " + esc(i.pay) : ""}</small>${i.notes ? `<br><small>${esc(i.notes)}</small>` : ""}</div><div class="r"><b>${fm(i.total)}</b></div><button class="del" aria-label="Delete" onclick="del(${i.id})">✕</button></div>`).join("") : empty("No purchases in this month.")}</div>`;
+    }
+
+    function del(id) {
+      (S.del = S.del || []).push(id);
+      S.items = S.items.filter(i => i.id != id);
+      save();
+      go("hist");
+    }
+
+    function add() {
+      const sg = scanGuess;
+      scanGuess = null;
+      return `<h1>Add purchase</h1>
+      <button class="tile" style="width:100%;margin-bottom:12px" onclick="go('scan')">📷<b>Scan a grocery bill instead</b><small>Read items directly from a photo</small></button>
+      ${scanImg ? `<div class="card"><div class="head"><b>Verify against your bill</b><button class="link" onclick="scanImg=null;go('add')">Remove</button></div><img src="${scanImg}" style="max-width:100%;border-radius:10px"><small style="display:block;margin-top:6px">Check the read amounts below before saving.</small></div>` : ""}
+      <div class="head"><b>Choose a product</b><button class="link" onclick="go('prod')">Add custom product</button></div><div class="chips">${allP().map((p, i) => `<button class="chip" onclick="pick(${i})"><span>${p[1]}</span>${p[0]}</button>`).join("")}</div>
+      <div class="card"><label style="margin-top:0">Product</label><input id="nm" value="${sg && sg.merchant ? esc(sg.merchant) : ""}" placeholder="Pick above or type a name" maxlength="40">
+      <label>Category</label><select id="ct">${Object.keys(AllC()).map(c => `<option>${c}</option>`).join("")}</select>
+      <label>Store</label><input id="sto" list="stl" maxlength="40" placeholder="e.g. Big Bazaar"><datalist id="stl">${[...new Set(S.items.map(i => i.store).filter(Boolean))].map(x => `<option value="${esc(x)}">`).join("")}</datalist>
+      <label>Quantity</label><div class="f"><input id="q" type="number" inputmode="decimal" value="1" min="0" step="any" oninput="tot()"><select id="u"><option>kg</option><option>g</option><option>L</option><option>ml</option><option>pcs</option></select></div>
+      <label>Price per unit (₹)</label><input id="pr" type="number" inputmode="decimal" value="${sg && sg.amount ? sg.amount : ""}" min="0" step="any" oninput="tot()" placeholder="e.g. 40">
+      <label>Date</label><input id="dt" type="date" value="${sg && sg.date ? sg.date : today()}">
+      <label>Payment mode</label><select id="pm"><option>Cash</option><option>UPI</option><option>Card</option></select>
+      <label>Notes (optional)</label><input id="nt" maxlength="80" value="${scanImg ? "Scanned from bill" : ""}" placeholder="e.g. Fresh and good quality">
+      <div class="total"><span>Total amount</span><span id="tt">${fm(sg && sg.amount ? sg.amount : 0)}</span></div><div class="err" id="err"></div>
+      <button class="btn" onclick="addP()">Save purchase</button></div>`;
+    }
+
+    function pick(i) {
+      const p = allP()[i];
+      $("#nm").value = p[0];
+      $("#ct").value = p[2];
+      if (p[3]) $("#u").value = p[3];
+      document.querySelectorAll(".chip").forEach((c, j) => c.classList.toggle("on", j == i));
+    }
+
+    function tot() {
+      $("#tt").textContent = fm((+$("#q").value || 0) * (+$("#pr").value || 0));
+    }
+
+    function addP() {
+      const g = id => $("#" + id).value, name = g("nm").trim(), qty = +g("q"), price = +g("pr");
+      if (!name || !(qty > 0) || g("pr") === "" || !(price >= 0) || !g("dt")) {
+        $("#err").textContent = "Enter a product, a quantity above 0, a price and a date.";
+        return;
+      }
+      S.items.push({
+        id: Date.now(),
+        name,
+        cat: g("ct"),
+        qty,
+        unit: g("u"),
+        price,
+        total: qty * price,
+        date: g("dt"),
+        pay: g("pm"),
+        store: g("sto").trim(),
+        notes: g("nt").trim()
+      });
+      save();
+      scanImg = null;
+      mo = g("dt").slice(0, 7);
+      go("hist");
+    }
+
+    // --- On-Device OCR Bill Scanning ---
+    function imgToCanvas(file) {
+      return new Promise((res, rej) => {
+        const img = new Image(), url = URL.createObjectURL(file);
+        img.onload = () => {
+          const sc = Math.min(1, 1400 / img.width), c = document.createElement("canvas");
+          c.width = Math.round(img.width * sc);
+          c.height = Math.round(img.height * sc);
+          c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(url);
+          res(c);
+        };
+        img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("img")); };
+        img.src = url;
+      });
+    }
+
+    let pdfjsReady = null;
+    function loadPdfJs() {
+      if (pdfjsReady) return pdfjsReady;
+      pdfjsReady = new Promise((res, rej) => {
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.min.js";
+        s.onload = () => {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.379/pdf.worker.min.js";
+          res();
+        };
+        s.onerror = () => rej(new Error("pdfjs"));
+        document.head.appendChild(s);
+      });
+      return pdfjsReady;
+    }
+
+    async function pdfToCanvas(file) {
+      await loadPdfJs();
+      const buf = await file.arrayBuffer();
+      const doc = await window.pdfjsLib.getDocument({ data: buf }).promise;
+      const page = await doc.getPage(1);
+      const vp0 = page.getViewport({ scale: 1 }), scale = Math.min(2, 1400 / vp0.width), vp = page.getViewport({ scale });
+      const c = document.createElement("canvas");
+      c.width = vp.width;
+      c.height = vp.height;
+      await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
+      return c;
+    }
+
+    let tessReady = null;
+    function loadTess() {
+      if (tessReady) return tessReady;
+      tessReady = new Promise((res, rej) => {
+        const s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+        s.onload = () => res();
+        s.onerror = () => rej(new Error("tesseract"));
+        document.head.appendChild(s);
+      });
+      return tessReady;
+    }
+
+    async function ocrText(canvas, statusEl) {
+      await loadTess();
+      const r = await window.Tesseract.recognize(canvas, "eng", {
+        logger: m => {
+          if (statusEl && m.status) statusEl.innerHTML = "<small>" + m.status + (m.progress ? " " + Math.round(m.progress * 100) + "%" : "") + "</small>";
+        }
+      });
+      return (r && r.data && r.data.text) || "";
+    }
+
+    function parseBill(text) {
+      const lines = text.split("\n").map(s => s.trim()).filter(Boolean);
+      const re = /(?:rs\.?|inr|₹)?\s*([0-9][0-9,]*\.?[0-9]{0,2})/gi;
+      const nums = [];
+      lines.forEach(l => {
+        if (/total|amount|grand|net|balance due|bill amt|bill amount/i.test(l)) {
+          let m, best = null;
+          re.lastIndex = 0;
+          while ((m = re.exec(l))) {
+            const vv = parseFloat(m[1].replace(/,/g, ""));
+            if (!isNaN(vv) && vv > 0) best = vv;
+          }
+          if (best != null) nums.push({ v: best, w: 3 });
+        }
+      });
+      if (!nums.length) {
+        lines.forEach(l => {
+          let m, best = null;
+          re.lastIndex = 0;
+          while ((m = re.exec(l))) {
+            const vv = parseFloat(m[1].replace(/,/g, ""));
+            if (!isNaN(vv) && vv > 0 && vv < 1000000) best = vv;
+          }
+          if (best != null) nums.push({ v: best, w: 1 });
+        });
+      }
+      nums.sort((a, b) => b.w - a.w || b.v - a.v);
+      const amount = nums.length ? nums[0].v : null;
+      let date = null;
+      const dre = /([0-3]?\d)[\/\-.]([01]?\d)[\/\-.]((?:20)?\d\d)/;
+      for (const l of lines) {
+        const m = l.match(dre);
+        if (m) {
+          let d = +m[1], mo2 = +m[2], yy = +m[3];
+          if (yy < 100) yy += 2000;
+          if (d >= 1 && d <= 31 && mo2 >= 1 && mo2 <= 12) {
+            date = yy + "-" + String(mo2).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+            break;
+          }
+        }
+      }
+      const merchant = lines.find(l => l.length > 2 && l.length < 40 && !/^\d/.test(l) && !dre.test(l)) || "";
+      return { amount, date, merchant };
+    }
+
+    async function onBillFile(file) {
+      if (!file) return;
+      const st = $("#scanStatus");
+      st.innerHTML = "<small>Processing receipt image…</small>";
+      try {
+        const canvas = file.type == "application/pdf" ? await pdfToCanvas(file) : await imgToCanvas(file);
+        scanImg = canvas.toDataURL("image/jpeg", 0.85);
+        if ($("#scanPrev")) $("#scanPrev").innerHTML = `<img src="${scanImg}" style="max-width:100%;border-radius:10px;margin-top:8px">`;
+        let text = "";
+        try { text = await ocrText(canvas, st); } catch (e) {}
+        scanGuess = text ? parseBill(text) : {};
+        if ($("#scanStatus")) $("#scanStatus").innerHTML = text ? "<small>Parsed successfully — check values on the form.</small>" : "<small>Could not auto-read text — enter manually.</small>";
+        setTimeout(() => go("add"), 500);
+      } catch (e) {
+        if ($("#scanStatus")) $("#scanStatus").innerHTML = "<small>Couldn't process that file. Try a clearer photo or PDF.</small>";
+      }
+    }
+
+    function scan() {
+      return `<h1>Scan a bill</h1><div class="card">
+      <label style="margin-top:0">Upload Photo or PDF Receipt</label>
+      <input type="file" accept="image/*,application/pdf" onchange="onBillFile(this.files[0])">
+      <div id="scanStatus" style="margin-top:8px"><small>Select a clear bill photo or PDF. Amount and date will be recognized locally on your device.</small></div>
+      <div id="scanPrev"></div>
+      </div>`;
+    }
+
+    function freshAdd() {
+      scanImg = null;
+      scanGuess = null;
+      go("add");
+    }
+
+    // --- Price Tracker ---
+    const SC = ["#1d4ed8", "#16a34a", "#f97316", "#8b5cf6", "#ec4899", "#06b6d4"];
+    let stf = "all", curSt = [];
+    const nz = i => i.unit == "g" ? { p: i.price * 1000, u: "kg" } : i.unit == "ml" ? { p: i.price * 1000, u: "L" } : { p: i.price, u: i.unit };
+    const sn = i => i.store || "Unknown store";
+    function pf(k) { stf = k < 0 ? "all" : curSt[k]; go("price"); }
+
+    function price() {
+      const names = [...new Set(S.items.map(i => i.name))].sort();
+      if (!names.length) return `<h1>Price tracker</h1>${empty("Add a few purchases to see price variations across stores and time.")}`;
+      if (!names.includes(sel)) sel = names[0];
+      const raw = S.items.filter(i => i.name == sel).sort((a, b) => a.date.localeCompare(b.date) || a.id - b.id), u = nz(raw[raw.length - 1]).u;
+      const it = raw.map(i => ({ ...i, ...nz(i) })).filter(i => i.u == u), stores = [...new Set(it.map(sn))];
+      curSt = stores;
+      if (!stores.includes(stf)) stf = "all";
+      const shown = stf == "all" ? stores : [stf], pts = it.filter(i => shown.includes(sn(i))), last = pts[pts.length - 1], prev = pts[pts.length - 2];
+      const ps = pts.map(i => i.p), mx = Math.max(...ps), mn = Math.min(...ps), avg = ps.reduce((a, b) => a + b, 0) / ps.length;
+      const ch = prev && prev.p ? ((last.p - prev.p) / prev.p) * 100 : null;
+      const t0 = +new Date(pts[0].date), t1 = +new Date(last.date), rg = mx - mn || 1, X = d => t1 == t0 ? 160 : 36 + ((new Date(d) - t0) / (t1 - t0)) * 250, Y = p => 92 - ((p - mn) / rg) * 66;
+      const svg = `<svg viewBox="0 0 310 125" width="100%" role="img" aria-label="Price history by store"><text x="30" y="${Y(mx) + 3}" text-anchor="end">${+mx.toFixed(1)}</text><text x="30" y="${Y(mn) + 3}" text-anchor="end">${+mn.toFixed(1)}</text><line x1="34" x2="300" y1="${Y(mx)}" y2="${Y(mx)}" stroke="var(--line)"/><line x1="34" x2="300" y1="${Y(mn)}" y2="${Y(mn)}" stroke="var(--line)"/>${stores.filter(x => shown.includes(x)).map(x => { const c = SC[stores.indexOf(x) % 6], a = pts.filter(i => sn(i) == x); return (a.length > 1 ? `<polyline points="${a.map(i => X(i.date) + "," + Y(i.p)).join(" ")}" fill="none" stroke="${c}" stroke-width="2.5"/>` : "") + a.map(i => `<circle cx="${X(i.date)}" cy="${Y(i.p)}" r="3.5" fill="${c}"><title>${esc(x)} ·${df(i.date)} · ${fm(i.p)}/${u}</title></circle>`).join(""); }).join("")}<text x="36" y="118">${df(pts[0].date)}</text><text x="300" y="118" text-anchor="end">${df(last.date)}</text></svg>`;
+      const st = stores.map(x => { const a = it.filter(i => sn(i) == x); return { s: x, l: a[a.length - 1].p, avg: a.reduce((q, i) => q + i.p, 0) / a.length, lo: Math.min(...a.map(i => i.p)), n: a.length }; }).sort((a, b) => a.l - b.l);
+
+      return `<h1>Price tracker</h1><select onchange="sel=this.value;stf='all';go('price')" aria-label="Product">${names.map(n => `<option ${n == sel ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin:12px 0"><button class="pill ${stf == "all" ? "on" : ""}" onclick="pf(-1)">All stores</button>${stores.map((x, k) => `<button class="pill ${stf == x ? "on" : ""}" onclick="pf(${k})">${esc(x)}</button>`).join("")}</div>
+      <div class="card"><div class="head"><span style="font-size:30px">${emo(sel)}</span>${ch === null ? "" : `<span class="${ch > 0 ? "up" : "dn"}">${ch > 0 ? "▲ +" : "▼ "}${ch.toFixed(1)}% vs previous buy</span>`}</div>
+      <div class="two"><div><small>Latest</small><br><b>${fm(last.p)}/${u}</b></div><div><small>Lowest</small><br><b>${fm(mn)}</b></div><div><small>Average</small><br><b>${fm(avg)}</b></div><div style="text-align:right"><small>Highest</small><br><b>${fm(mx)}</b></div></div></div>
+      <div class="card"><b>Price per ${u}</b>${pts.length > 1 ? svg : empty("Log this again to view graph.")}${stores.length > 1 && stf == "all" ? `<div style="display:flex;gap:12px;flex-wrap:wrap">${stores.map((x, k) => `<div class="leg"><i style="background:${SC[k % 6]}"></i>${esc(x)}</div>`).join("")}</div>` : ""}</div>
+      <div class="card"><b>Store comparison</b> <small>latest price per ${u}</small>${stores.length > 1 ? st.map((x, k) => `<div class="row"><i style="width:10px;height:10px;border-radius:3px;background:${SC[stores.indexOf(x.s) % 6]}"></i><div class="g"><b>${esc(x.s)}</b><small>Avg ${fm(x.avg)} · Low ${fm(x.lo)} · ${x.n} buy${x.n > 1 ? "s" : ""}</small></div><div class="r"><b>${fm(x.l)}</b><small class="${k ? "up" : "dn"}">${k ? "+" + fm(x.l - st[0].l) + " vs cheapest" : "Cheapest"}</small></div></div>`).join("") : empty("Log from multiple stores to compare.")}</div>
+      <div class="card"><b>Previous purchases</b>${[...pts].reverse().map(i => `<div class="row"><div class="g">${df(i.date)}<br><small>${esc(sn(i))}</small></div><b>${fm(i.p)}/${u}</b></div>`).join("")}</div>`;
+    }
+
+    // --- Products ---
+    function prod() {
+      return `<h1>My products</h1><div class="card"><label style="margin-top:0">Product name</label><input id="pn" maxlength="40" placeholder="e.g. Idli batter">
+      <div class="f"><div><label>Emoji</label><input id="pe" value="🛒" maxlength="4"></div><div><label>Default unit</label><select id="pu"><option>kg</option><option>g</option><option>L</option><option>ml</option><option>pcs</option></select></div></div>
+      <label>Category</label><select id="pc">${Object.keys(AllC()).map(c => `<option>${c}</option>`).join("")}</select><div class="err" id="perr"></div><button class="btn" onclick="addProd()">Save product</button></div>
+      <div class="card"><b>Your custom products</b>${S.prods.length ? S.prods.map((p, k) => `<div class="row"><span class="em">${esc(p.emo)}</span><div class="g"><b>${esc(p.name)}</b><small>${p.cat} · per ${p.unit}</small></div><button class="del" aria-label="Delete" onclick="delProd(${k})">✕</button></div>`).join("") : empty("No custom products added yet.")}</div>
+      <button class="link" onclick="go('add')">Back to add purchase</button>`;
+    }
+
+    function addProd() {
+      const n = $("#pn").value.trim();
+      if (!n) { $("#perr").textContent = "Enter a product name."; return; }
+      if (allP().some(p => p[0].toLowerCase() == n.toLowerCase())) { $("#perr").textContent = "That product already exists."; return; }
+      S.pdel = (S.pdel || []).filter(x => x != n.toLowerCase());
+      S.prods.push({ name: n, emo: $("#pe").value.trim() || "🛒", cat: $("#pc").value, unit: $("#pu").value });
+      save();
+      go("prod");
+    }
+
+    function delProd(k) {
+      (S.pdel = S.pdel || []).push(S.prods[k].name.toLowerCase());
+      S.prods.splice(k, 1);
+      save();
+      go("prod");
+    }
+
+    // --- Reports ---
+    function periodRange(type, anchor) {
+      const d = new Date(anchor + "T00:00");
+      if (type == "day") return [anchor, anchor];
+      if (type == "week") {
+        const dow = d.getDay(), s = new Date(d);
+        s.setDate(d.getDate() - dow);
+        const e = new Date(s);
+        e.setDate(s.getDate() + 6);
+        return [ymd(s), ymd(e)];
+      }
+      if (type == "year") return [d.getFullYear() + "-01-01", d.getFullYear() + "-12-31"];
+      const y = d.getFullYear(), m = d.getMonth();
+      return [ymd(new Date(y, m, 1)), ymd(new Date(y, m + 1, 0))];
+    }
+
+    function prevRange(type, cur, anchor) {
+      if (type == "custom") {
+        const len = (new Date(cur[1]) - new Date(cur[0])) / 864e5 + 1;
+        return [addDays(cur[0], -len), addDays(cur[1], -len)];
+      }
+      const d = new Date(anchor + "T00:00");
+      if (type == "day") d.setDate(d.getDate() - 1);
+      else if (type == "week") d.setDate(d.getDate() - 7);
+      else if (type == "year") d.setFullYear(d.getFullYear() - 1);
+      else d.setMonth(d.getMonth() - 1, 1);
+      return periodRange(type, ymd(d));
+    }
+
+    function rangeLabel(type, cur, anchor) {
+      if (type == "day") return df(cur[0]);
+      if (type == "week") return df(cur[0]) + " – " + df(cur[1]);
+      if (type == "year") return String(new Date(anchor + "T00:00").getFullYear());
+      if (type == "month") return new Date(anchor + "T00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+      return df(cur[0]) + " – " + df(cur[1]);
+    }
+
+    const inRange = r => S.items.filter(i => i.date >= r[0] && i.date <= r[1]);
+
+    function shiftRep(n) {
+      if (repType == "custom") {
+        const len = (new Date(repTo || today()) - new Date(repFrom || today())) / 864e5 + 1;
+        repFrom = addDays(repFrom || today(), n * len);
+        repTo = addDays(repTo || today(), n * len);
+        return go("rep");
+      }
+      const d = new Date(repAnchor + "T00:00");
+      if (repType == "day") d.setDate(d.getDate() + n);
+      else if (repType == "week") d.setDate(d.getDate() + 7 * n);
+      else if (repType == "year") d.setFullYear(d.getFullYear() + n);
+      else d.setMonth(d.getMonth() + n, 1);
+      repAnchor = ymd(d);
+      go("rep");
+    }
+
+    function rep() {
+      if (repType == "custom") {
+        if (!repFrom) repFrom = addDays(today(), -6);
+        if (!repTo) repTo = today();
+      }
+      const cur = repType == "custom" ? [repFrom <= repTo ? repFrom : repTo, repFrom <= repTo ? repTo : repFrom] : periodRange(repType, repAnchor);
+      const prev = prevRange(repType, cur, repAnchor);
+      const curIt = inRange(cur), prevIt = inRange(prev), t = sum(curIt), pt = sum(prevIt);
+      const diff = pt ? ((t - pt) / pt) * 100 : (t ? 100 : 0);
+      const chips = `<div class="chips" style="grid-template-columns:repeat(5,1fr)">${[["day", "Day"], ["week", "Week"], ["month", "Month"], ["year", "Year"], ["custom", "Custom"]].map(([k, l]) => `<button class="chip ${repType == k ? "on" : ""}" onclick="repType='${k}';go('rep')">${l}</button>`).join("")}</div>`;
+      const nav = repType == "custom" ? `<div class="f" style="margin-bottom:12px"><div><label style="margin-top:0">From</label><input type="date" value="${cur[0]}" onchange="repFrom=this.value;go('rep')"></div><div><label style="margin-top:0">To</label><input type="date" value="${cur[1]}" onchange="repTo=this.value;go('rep')"></div></div>` : `<div class="mnav"><button onclick="shiftRep(-1)">‹</button><span>${rangeLabel(repType, cur, repAnchor)}</span><button onclick="shiftRep(1)">›</button></div>`;
+
+      if (!curIt.length) return `<h1>Reports</h1>${chips}${nav}${empty("No purchases logged in this period.")}`;
+
+      const by = {}; curIt.forEach(i => by[i.cat] = (by[i.cat] || 0) + i.total);
+      const pby = {}; prevIt.forEach(i => pby[i.cat] = (pby[i.cat] || 0) + i.total);
+      const cats = Object.entries(by).sort((a, b) => b[1] - a[1]);
+      const ac = AllC();
+      const C = 2 * Math.PI * 40; let acc = 0;
+      const arcs = cats.map(([c, a]) => {
+        const l = (a / t) * C, s = `<circle cx="60" cy="60" r="40" fill="none" stroke="${ac[c] || "#888"}" stroke-width="18" stroke-dasharray="${l} ${C - l}" stroke-dashoffset="${-acc}" transform="rotate(-90 60 60)"/>`;
+        acc += l;
+        return s;
+      }).join("");
+
+      const days = [];
+      let cd = cur[0], loopCount = 0;
+      while (cd <= cur[1] && loopCount < 400) { days.push(cd); cd = addDays(cd, 1); loopCount++; }
+
+      let labels = days, dv;
+      if (days.length <= 12) {
+        dv = days.map(d => sum(S.items.filter(i => i.date == d)));
+        labels = days.map(d => d.slice(8));
+      } else {
+        const bc = Math.min(10, days.length), sz = Math.ceil(days.length / bc), groups = [];
+        for (let i = 0; i < days.length; i += sz) groups.push(days.slice(i, i + sz));
+        dv = groups.map(g => sum(S.items.filter(i => g.includes(i.date))));
+        labels = groups.map(g => df(g[0]).slice(0, 6));
+      }
+
+      const mx = Math.max(...dv, 1), n = dv.length, bw = Math.max(8, 250 / n - 4);
+      const bars = dv.map((x, k) => {
+        const h = (x / mx) * 80, xx = 12 + k * (270 / n);
+        return `<rect x="${xx}" y="${95 - h}" width="${bw}" height="${h}" rx="4" fill="var(--blue)"/><text x="${xx + bw / 2}" y="108" text-anchor="middle">${esc(labels[k])}</text>`;
+      }).join("");
+
+      return `<h1>Reports</h1>${chips}${nav}
+      <div class="card"><small>Total spent</small><div style="font-size:26px;font-weight:700">${fm(t)}</div><small class="${diff > 0 ? "up" : diff < 0 ? "dn" : ""}">${diff == 0 ? "Same as" : (diff > 0 ? "▲ +" + diff.toFixed(1) + "% vs" : "▼ " + Math.abs(diff).toFixed(1) + "% vs")} previous ${repType == "custom" ? "period" : repType} (${fm(pt)})</small></div>
+      <div class="card"><div class="f" style="align-items:center"><svg viewBox="0 0 120 120" width="120" style="flex:none" role="img" aria-label="Spending by category">${arcs}<text x="60" y="58" text-anchor="middle">Total</text><text x="60" y="70" text-anchor="middle" style="font-weight:700;fill:var(--ink);font-size:10px">${fm(t)}</text></svg>
+      <div>${cats.map(([c, a]) => {
+        const pa = pby[c] || 0, d = pa ? ((a - pa) / pa) * 100 : (a ? 100 : 0);
+        return `<div class="leg"><i style="background:${ac[c] || "#888"}"></i>${c}<b>${fm(a)}</b></div><div style="font-size:11px;color:var(--mute);margin:-4px 0 6px 18px">${pa ? ((d > 0 ? "▲ +" : "▼ ") + Math.abs(d).toFixed(0) + "% vs prev") : "new this period"}</div>`;
+      }).join("")}</div></div></div>
+      <div class="card"><b>Spending over time</b><svg viewBox="0 0 290 115" width="100%" role="img" aria-label="Spending over time">${bars}</svg></div>`;
+    }
+
+    // --- Recurring Bills & Subscriptions ---
+    function paidToday(b) {
+      return S.items.some(i => i.date == today() && i.name == b.name && i.cat == b.category);
+    }
+
+    function nextDue(b) {
+      const t = today();
+      if (b.freq == "weekly") {
+        const d = new Date(t + "T00:00");
+        const diff = ((b.day - d.getDay()) + 7) % 7;
+        d.setDate(d.getDate() + diff);
+        return ymd(d);
+      }
+      if (b.freq == "yearly") {
+        let y = new Date(t + "T00:00").getFullYear();
+        let dim = new Date(y, b.month, 0).getDate();
+        let ds = y + "-" + String(b.month).padStart(2, "0") + "-" + String(Math.min(b.day, dim)).padStart(2, "0");
+        if (ds < t) {
+          y++;
+          dim = new Date(y, b.month, 0).getDate();
+          ds = y + "-" + String(b.month).padStart(2, "0") + "-" + String(Math.min(b.day, dim)).padStart(2, "0");
+        }
+        return ds;
+      }
+      let y = new Date(t + "T00:00").getFullYear(), m = new Date(t + "T00:00").getMonth() + 1;
+      let dim = new Date(y, m, 0).getDate();
+      let ds = y + "-" + String(m).padStart(2, "0") + "-" + String(Math.min(b.day, dim)).padStart(2, "0");
+      if (ds < t) {
+        m++;
+        if (m > 12) { m = 1; y++; }
+        dim = new Date(y, m, 0).getDate();
+        ds = y + "-" + String(m).padStart(2, "0") + "-" + String(Math.min(b.day, dim)).padStart(2, "0");
+      }
+      return ds;
+    }
+
+    function freqTxt(b) {
+      if (b.freq == "monthly") return "Monthly on day " + b.day;
+      if (b.freq == "weekly") return "Weekly on " + ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][b.day];
+      return "Yearly on " + ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][b.month] + " " + b.day;
+    }
+
+    function bfHtml(f) {
+      if (f == "weekly") return `<label>Day of week</label><select id="bd">${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, i) => `<option value="${i}">${d}</option>`).join("")}</select>`;
+      if (f == "yearly") return `<div class="f"><div><label>Month</label><select id="bm">${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((mn, i) => `<option value="${i + 1}">${mn}</option>`).join("")}</select></div><div><label>Day</label><input id="bd" type="number" min="1" max="31" value="1"></div></div>`;
+      return `<label>Day of month</label><input id="bd" type="number" min="1" max="31" value="1">`;
+    }
+
+    function bfC() { $("#bfx").innerHTML = bfHtml($("#bf").value); }
+
+    function markPaid(id) {
+      const b = S.bills.find(x => x.id == id);
+      if (!b) return;
+      S.items.push({
+        id: Date.now(),
+        name: b.name,
+        cat: b.category,
+        qty: 1,
+        unit: "pcs",
+        price: b.amount,
+        total: b.amount,
+        date: today(),
+        pay: "",
+        store: "",
+        notes: "Recurring payment"
+      });
+      save();
+      go(v);
+    }
+
+    function addBill() {
+      const n = $("#bn").value.trim(), amt = +$("#ba").value, freq = $("#bf").value;
+      if (!n || !(amt > 0)) { $("#berr").textContent = "Enter a name and an amount above 0."; return; }
+      const b = { id: Date.now(), name: n, category: $("#bc").value, amount: amt, freq, notes: $("#bnt").value.trim() };
+      if (freq == "weekly") b.day = +$("#bd").value;
+      else if (freq == "yearly") {
+        b.month = +$("#bm").value;
+        b.day = Math.min(31, Math.max(1, +$("#bd").value || 1));
+      } else b.day = Math.min(31, Math.max(1, +$("#bd").value || 1));
+      S.bills.push(b);
+      save();
+      go("bills");
+    }
+
+    function delBill(id) {
+      S.bills = S.bills.filter(b => b.id != id);
+      save();
+      go("bills");
+    }
+
+    function bills() {
+      const list = [...S.bills].map(b => ({ ...b, nd: nextDue(b) })).sort((a, b) => a.nd.localeCompare(b.nd));
+      const notifSupported = "Notification" in window, notifOn = notifSupported && Notification.permission == "granted";
+      return `<h1>Bills &amp; EMIs</h1>
+      <div class="card"><div class="head"><b>Reminders</b>${notifSupported ? (notifOn ? `<small>Active</small>` : `<button class="link" onclick="askNotif()">Enable alerts</button>`) : `<small>Not supported here</small>`}</div><small>Alerts are checked upon app launch.</small></div>
+      <div class="card"><label style="margin-top:0">Name</label><input id="bn" maxlength="40" placeholder="e.g. House rent / EB bill">
+      <label>Category</label><select id="bc">${Object.keys(BC).map(c => `<option>${c}</option>`).join("")}</select>
+      <label>Amount (₹)</label><input id="ba" type="number" inputmode="decimal" min="0" step="any" placeholder="e.g. 12000">
+      <label>Repeats</label><select id="bf" onchange="bfC()"><option value="monthly">Monthly</option><option value="weekly">Weekly</option><option value="yearly">Yearly</option></select>
+      <div id="bfx">${bfHtml("monthly")}</div>
+      <label>Notes (optional)</label><input id="bnt" maxlength="60">
+      <div class="err" id="berr"></div><button class="btn" onclick="addBill()">Save bill</button></div>
+      <div class="card"><b>Your recurring bills</b>${list.length ? list.map(b => `<div class="row"><span class="em">${BE[b.category] || "🧾"}</span><div class="g"><b>${esc(b.name)}</b><small>${esc(b.category)} · ${freqTxt(b)}</small><small>${b.nd == today() ? (paidToday(b) ? "Paid today" : "Due today") : (b.nd < addDays(today(), 3) ? "Due " + df(b.nd) : "Next " + df(b.nd))}</small></div><div class="r"><b>${fm(b.amount)}</b>${!paidToday(b) ? `<button class="link" style="display:block;margin-top:4px" onclick="markPaid(${b.id})">Mark paid</button>` : ""}</div><button class="del" aria-label="Delete" onclick="delBill(${b.id})">✕</button></div>`).join("") : empty("No recurring bills added.")}</div>`;
+    }
+
+    function askNotif() {
+      if (!("Notification" in window)) return;
+      Notification.requestPermission().then(() => go("bills"));
+    }
+
+    function checkReminders() {
+      if (!("Notification" in window) || Notification.permission !== "granted") return;
+      let last = null;
+      try { last = localStorage.getItem("notif-date"); } catch (e) {}
+      if (last == today()) return;
+      const due = S.bills.filter(b => !paidToday(b) && nextDue(b) <= addDays(today(), 1));
+      if (due.length) {
+        try { new Notification("Bills due", { body: due.map(b => b.name + " – " + fm(b.amount)).join(", ").slice(0, 180) }); } catch (e) {}
+      }
+      try { localStorage.setItem("notif-date", today()); } catch (e) {}
+    }
+
+    // --- Google Drive Backup (Hidden App Data Folder) ---
+    const CLIENT_ID = "386974473840-bv3fdu5qcnts14bi3b2bem2e5ava4155.apps.googleusercontent.com";
+    const FN = "spend-tracker.json";
+    let tok = null, tc = null, timer = null;
+
+    const ls = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+    const cfg = () => !CLIENT_ID.startsWith("PASTE");
+    let sst = !cfg() ? "Not set up yet. Add your Google client ID." : ls("gd") ? "Reconnecting…" : "Not connected. Sign in to back up to Google Drive.";
+    const setSt = t => { sst = t; const e = $("#gst"); if (e) e.textContent = t; };
+    const gcard = () => `<div class="card"><div class="head"><b>Google Drive backup</b>${tok ? `<button class="link" onclick="sync()">Sync now</button>` : `<button class="link" onclick="gIn()">${ls("gd") ? "Reconnect" : "Sign in"}</button>`}</div><small id="gst">${esc(sst)}</small></div>`;
+
+    function merge(a, b) {
+      const del = new Set([...(a.del || []), ...(b.del || [])]), pd = new Set([...(a.pdel || []), ...(b.pdel || [])]), m = new Map(), pm = new Map();
+      [...(b.items || []), ...(a.items || [])].forEach(i => m.set(i.id, i));
+      [...(b.prods || []), ...(a.prods || [])].forEach(p => pm.set(p.name.toLowerCase(), p));
+      const newer = (a.upd || 0) >= (b.upd || 0);
+      return {
+        budget: newer ? a.budget : b.budget,
+        items: [...m.values()].filter(i => !del.has(i.id)),
+        prods: [...pm.values()].filter(p => !pd.has(p.name.toLowerCase())),
+        bills: newer ? (a.bills || b.bills || []) : (b.bills || a.bills || []),
+        del: [...del],
+        pdel: [...pd],
+        upd: Math.max(a.upd || 0, b.upd || 0)
+      };
+    }
+
+    function gInit() {
+      if (tc) return true;
+      if (!cfg() || !(window.google && google.accounts && google.accounts.oauth2)) return false;
+      tc = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: "https://www.googleapis.com/auth/drive.appdata",
+        callback: r => {
+          if (r && r.access_token) {
+            tok = r.access_token;
+            try { localStorage.setItem("gd", "1"); } catch (e) {}
+            if (v == "home") go("home");
+            sync();
+          } else {
+            setSt("Sign-in failed. Try again.");
+          }
+        },
+        error_callback: () => setSt("Sign-in was cancelled or blocked.")
+      });
+      return true;
+    }
+
+    function gIn() {
+      if (!cfg()) { setSt("Add your Google client ID first."); return; }
+      if (!gInit()) { setSt("Google sign-in is loading. Check internet connection."); return; }
+      tc.requestAccessToken();
+    }
+
+    async function dr(url, o = {}) {
+      const r = await fetch(url, { ...o, headers: { Authorization: "Bearer " + tok, ...(o.headers || {}) } });
+      if (r.status == 401) { tok = null; throw new Error("expired"); }
+      if (!r.ok) throw new Error("Drive " + r.status);
+      return r;
+    }
+
+    async function sync() {
+      if (!tok) return;
+      setSt("Syncing…");
+      try {
+        const q = encodeURIComponent("name='" + FN + "'");
+        const l = await (await dr("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=" + q + "&fields=files(id)")).json();
+        const id = l.files[0] && l.files[0].id;
+        if (id) {
+          const rm = await (await dr("https://www.googleapis.com/drive/v3/files/" + id + "?alt=media")).json();
+          S = merge(S, rm);
+          S.prods = S.prods || [];
+          S.bills = S.bills || [];
+          raw();
+        }
+        const body = JSON.stringify(S);
+        if (id) {
+          await dr("https://www.googleapis.com/upload/drive/v3/files/" + id + "?uploadType=media", { method: "PATCH", headers: { "Content-Type": "application/json" }, body });
+        } else {
+          const b = "ss" + Date.now();
+          const mp = `--${b}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify({ name: FN, parents: ["appDataFolder"] })}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${b}--`;
+          await dr("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", { method: "POST", headers: { "Content-Type": "multipart/related; boundary=" + b }, body: mp });
+        }
+        setSt("Synced at " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
+        if (v == "home" || v == "hist" || v == "bills") go(v);
+      } catch (e) {
+        setSt(e.message == "expired" ? "Session expired. Tap Reconnect." : "Sync failed. Tap Sync now.");
+        if (v == "home") go("home");
+      }
+    }
+
+    addEventListener("load", () => {
+      if (ls("gd") && gInit()) tc.requestAccessToken({ prompt: "none" });
+      if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+
+    // --- Navigation ---
+    const V = { home, hist, add, price, rep, prod, scan, bills };
+    const N = [
+      ["home", "🏠", "Home"],
+      ["hist", "🧾", "History"],
+      ["add"],
+      ["price", "🏷️", "Prices"],
+      ["rep", "📊", "Reports"]
+    ];
+
+    function go(x) {
+      v = x;
+      $("#app").innerHTML = V[x]();
+      $("#nav").innerHTML = N.map(n => n[1] ? `<button class="${n[0] == v ? "on" : ""}" onclick="go('${n[0]}')"><span>${n[1]}</span>${n[2]}</button>` : `<button class="plus" aria-label="Add purchase" onclick="freshAdd()">+</button>`).join("");
+      window.scrollTo(0, 0);
+    }
+
+    go("home");
+    checkReminders();
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState == "visible") checkReminders();
+    });
+  </script>
+</body>
+</html>
