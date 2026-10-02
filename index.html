@@ -84,16 +84,18 @@
     .bar i { display: block; height: 100%; background: #4ade80; }
     .bar.over i { background: #f87171; }
     .two { display: flex; justify-content: space-between; margin-top: 10px; }
-    .hero input {
-      width: 110px;
-      background: #ffffff1f;
+    .hero .budget-btn {
+      background: none;
       border: 0;
       color: #fff;
-      border-radius: 8px;
-      padding: 4px 8px;
       font: inherit;
-      font-weight: 600;
-      text-align: right;
+      padding: 0;
+      text-align: left;
+      cursor: pointer;
+    }
+    .hero .budget-btn b {
+      border-bottom: 1px dashed #ffffff88;
+      font-size: 15px;
     }
     .tiles {
       display: grid;
@@ -393,9 +395,16 @@
 
     let S = null;
     try { S = JSON.parse(localStorage.getItem("st")); } catch (e) {}
-    S = S || { budget: 25000, items: [] };
+    S = S || { items: [] };
+    S.items = S.items || [];
     S.prods = S.prods || [];
     S.bills = S.bills || [];
+    S.budgets = S.budgets || {};
+    if (typeof S.budget === "number" && Object.keys(S.budgets).length === 0) {
+      const curMo = new Date().toISOString().slice(0, 7);
+      S.budgets[curMo] = S.budget;
+    }
+    S.defaultBudget = S.defaultBudget || S.budget || 25000;
     S.geminiKey = S.geminiKey || "";
     S.userName = S.userName || "";
 
@@ -412,7 +421,9 @@
     const addDays = (ds, n) => { const d = new Date(ds + "T00:00"); d.setDate(d.getDate() + n); return ymd(d); };
     const opts = (a, x) => a.map(o => `<option ${o == x ? "selected" : ""}>${esc(o)}</option>`).join("");
 
-    let v = "home", mo = today().slice(0, 7), sel = null, editId = null, B = null;
+    const getBudgetForMonth = m => (S.budgets && typeof S.budgets[m] === "number") ? S.budgets[m] : (S.defaultBudget || 25000);
+
+    let v = "home", mo = today().slice(0, 7), bMo = today().slice(0, 7), sel = null, editId = null, B = null;
     let repType = "month", repAnchor = today(), repFrom = null, repTo = null;
 
     const inMo = m => S.items.filter(i => i.date.startsWith(m)).sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id);
@@ -422,7 +433,12 @@
     const mnav = () => `<div class="mnav"><button onclick="window.shift(-1)">‹</button><span>${new Date(mo + "-01T00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" })}</span><button onclick="window.shift(1)">›</button></div>`;
     const empty = t => `<div class="empty">${t}</div>`;
 
-    // Expose helpers to window for inline onclick handlers
+    function discardBill() {
+      B = null;
+      go('bill');
+    }
+
+    // Attach functions to window for DOM event attributes
     window.go = go;
     window.shift = shift;
     window.editItem = editItem;
@@ -436,6 +452,7 @@
     window.bs = bs;
     window.bt = bt;
     window.addBatchBill = addBatchBill;
+    window.discardBill = discardBill;
     window.handleBillUpload = handleBillUpload;
     window.pf = pf;
     window.addProd = addProd;
@@ -448,30 +465,122 @@
     window.askNotif = askNotif;
     window.gIn = gIn;
     window.sync = sync;
+    window.shiftBudgetMonth = shiftBudgetMonth;
+    window.saveMonthBudget = saveMonthBudget;
 
+    // --- Home Screen ---
     function home() {
-      const cur = today().slice(0, 7), it = inMo(cur), t = sum(it), b = S.budget, left = b - t, p = Math.min(100, b > 0 ? (t / b) * 100 : 0);
+      const cur = today().slice(0, 7), it = inMo(cur), t = sum(it);
+      const b = getBudgetForMonth(cur);
+      const left = b - t, p = Math.min(100, b > 0 ? (t / b) * 100 : 0);
       const due = S.bills.filter(x => !paidToday(x) && nextDue(x) <= addDays(today(), 2));
       const greeting = S.userName ? `Welcome back, ${esc(S.userName)}` : "Welcome back";
 
       return `<small>${greeting}</small><h1>Your spending</h1>
-      <div class="hero"><small>This month's spending</small><div class="big">${fm(t)}</div>
-      <div class="bar ${left < 0 ? "over" : ""}"><i style="width:${p}%"></i></div>
-      <div class="two"><div><small>Monthly budget</small><br>₹<input type="number" inputmode="decimal" value="${b}" onchange="S.budget=+this.value||0;save();go('home')" aria-label="Monthly budget"></div>
-      <div style="text-align:right"><small>${left < 0 ? "Over budget" : "Remaining"}</small><br><b>${fm(Math.abs(left))}</b></div></div></div>
+      <div class="hero">
+        <small>This month's spending (${new Date(cur + "-01T00:00").toLocaleDateString("en-IN", { month: "short", year: "numeric" })})</small>
+        <div class="big">${fm(t)}</div>
+        <div class="bar ${left < 0 ? "over" : ""}"><i style="width:${p}%"></i></div>
+        <div class="two">
+          <div>
+            <button class="budget-btn" onclick="bMo='${cur}';go('budget')">
+              <small style="color:#c7d6ff">Monthly budget</small><br>
+              <b>${fm(b)} ✎</b>
+            </button>
+          </div>
+          <div style="text-align:right">
+            <small style="color:#c7d6ff">${left < 0 ? "Over budget" : "Remaining"}</small><br>
+            <b>${fm(Math.abs(left))}</b>
+          </div>
+        </div>
+      </div>
       ${due.length ? `<div class="card" style="border-color:#f59e0b"><b>⏰ ${due.length} bill${due.length > 1 ? "s" : ""} due soon</b>${due.map(x => `<div class="row"><span class="em">${BE[x.category] || "🧾"}</span><div class="g"><b>${esc(x.name)}</b><small>${nextDue(x) == today() ? "Due today" : "Due " + df(nextDue(x))}</small></div><div class="r"><b>${fm(x.amount)}</b></div></div>`).join("")}<button class="link" onclick="go('bills')">Manage bills</button></div>` : ""}
       <div class="tiles">
         <button class="tile" onclick="go('add')">➕<b>Add purchase</b><small>Log item manually</small></button>
-        <button class="tile" onclick="go('bill')">📷<b>AI Bill Scanner</b><small>Modular Knowledge Engine</small></button>
+        <button class="tile" onclick="go('bill')">📷<b>AI Bill Scanner</b><small>Smart OCR & Item Knowledge</small></button>
+        <button class="tile" onclick="bMo='${cur}';go('budget')">🎯<b>Monthly Budgets</b><small>Set custom limit per month</small></button>
         <button class="tile" onclick="go('rep')">📊<b>View reports</b><small>Insights &amp; trends</small></button>
         <button class="tile" onclick="go('price')">🏷️<b>Price tracker</b><small>Compare stores</small></button>
         <button class="tile" onclick="go('bills')">🔔<b>Bills &amp; EMIs</b><small>Reminders & tracking</small></button>
-        <button class="tile" onclick="go('settings')">⚙️<b>AI &amp; Settings</b><small>Name & Gemini Key</small></button>
       </div>
       <div class="head"><b>Recent purchases</b><button class="link" onclick="go('hist')">View all</button></div>
       <div class="card">${S.items.length ? [...S.items].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 5).map(row).join("") : empty("No purchases yet. Tap + to add your first one.")}</div>${gcard()}`;
     }
 
+    // --- Custom Month Budget Planner ---
+    function shiftBudgetMonth(d) {
+      const [y, m] = bMo.split("-").map(Number);
+      const n = new Date(y, m - 1 + d, 1);
+      bMo = n.getFullYear() + "-" + String(n.getMonth() + 1).padStart(2, "0");
+      go('budget');
+    }
+
+    function saveMonthBudget() {
+      const val = +$("#bVal").value;
+      const defVal = +$("#bDefVal").value;
+      if (isNaN(val) || val < 0) {
+        $("#bErr").textContent = "Enter a valid budget amount.";
+        return;
+      }
+      S.budgets[bMo] = val;
+      if (!isNaN(defVal) && defVal > 0) {
+        S.defaultBudget = defVal;
+      }
+      save();
+      alert(`Budget for ${new Date(bMo + "-01T00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" })} set to ${fm(val)}!`);
+      go('budget');
+    }
+
+    function budget() {
+      const it = inMo(bMo);
+      const spent = sum(it);
+      const curB = getBudgetForMonth(bMo);
+      const rem = curB - spent;
+      const isCustom = S.budgets && Object.prototype.hasOwnProperty.call(S.budgets, bMo);
+      const monthTitle = new Date(bMo + "-01T00:00").toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+      const configuredMonths = Object.keys(S.budgets || {}).sort().reverse();
+
+      return `<h1>Monthly Budget Planner</h1>
+      <div class="mnav">
+        <button onclick="window.shiftBudgetMonth(-1)">‹</button>
+        <span>${monthTitle}</span>
+        <button onclick="window.shiftBudgetMonth(1)">›</button>
+      </div>
+      <div class="card">
+        <div class="two" style="margin-top:0">
+          <div><small>Spent this month</small><br><b>${fm(spent)}</b></div>
+          <div style="text-align:right"><small>${rem < 0 ? "Over budget" : "Remaining"}</small><br><b class="${rem < 0 ? "up" : "dn"}">${fm(Math.abs(rem))}</b></div>
+        </div>
+      </div>
+      <div class="card">
+        <b>Budget for ${monthTitle}</b>
+        <small style="display:block;margin:4px 0 10px">${isCustom ? "✓ Custom budget configured for this month" : "Currently using default fallback budget"}</small>
+        <label style="margin-top:0">Target Amount (₹)</label>
+        <input id="bVal" type="number" inputmode="decimal" value="${curB}" placeholder="e.g. 30000">
+        <label>Default fallback for other months (₹)</label>
+        <input id="bDefVal" type="number" inputmode="decimal" value="${S.defaultBudget || 25000}">
+        <div class="err" id="bErr"></div>
+        <button class="btn" onclick="saveMonthBudget()">Save Budget</button>
+      </div>
+      <div class="card">
+        <b>Configured Month Limits</b>
+        ${configuredMonths.length ? configuredMonths.map(m => `
+          <div class="row">
+            <div class="g">
+              <b>${new Date(m + "-01T00:00").toLocaleDateString("en-IN", { month: "short", year: "numeric" })}</b>
+              <small>Spent: ${fm(sum(inMo(m)))}</small>
+            </div>
+            <div class="r">
+              <b>${fm(S.budgets[m])}</b>
+              <button class="link" style="font-size:12px;display:block" onclick="bMo='${m}';go('budget')">Edit</button>
+            </div>
+          </div>
+        `).join("") : empty("No custom budgets set yet.")}
+      </div>
+      <button class="link" style="display:block;margin:12px auto 0" onclick="go('home')">Back to Home</button>`;
+    }
+
+    // --- History Screen ---
     function hist() {
       const it = inMo(mo);
       return `<h1>Purchase history</h1>${mnav()}
@@ -765,7 +874,7 @@
         <div id="bchk"></div>
         <div class="err" id="berr"></div>
         <button class="btn" id="badd" onclick="addBatchBill()">Add to spending</button>
-        <button class="link" style="display:block;margin:12px auto 0" onclick="B=null;go('bill')">Discard bill</button>
+        <button class="link" style="display:block;margin:12px auto 0" onclick="discardBill()">Discard bill</button>
       </div>
       ${up}`;
     }
@@ -1142,8 +1251,11 @@
       [...(b.items || []), ...(a.items || [])].forEach(i => m.set(i.id, i));
       [...(b.prods || []), ...(a.prods || [])].forEach(p => pm.set(p.name.toLowerCase(), p));
       const newer = (a.upd || 0) >= (b.upd || 0);
+      const mergedBudgets = Object.assign({}, b.budgets || {}, a.budgets || {});
+
       return {
-        budget: newer ? a.budget : b.budget,
+        budgets: mergedBudgets,
+        defaultBudget: newer ? (a.defaultBudget || b.defaultBudget) : (b.defaultBudget || a.defaultBudget),
         items: [...m.values()].filter(i => !del.has(i.id)),
         prods: [...pm.values()].filter(p => !pd.has(p.name.toLowerCase())),
         bills: newer ? (a.bills || b.bills || []) : (b.bills || a.bills || []),
@@ -1225,10 +1337,11 @@
         const l = await (await dr("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=" + q + "&fields=files(id)")).json();
         const id = l.files[0] && l.files[0].id;
         if (id) {
-          const rm = await (await dr("https://www.googleapis.com/drive/v3/files/"+id+"?alt=media")).json();
+          const rm = await (await dr("https://www.googleapis.com/drive/v3/files/" + id + "?alt=media")).json();
           S = merge(S, rm);
           S.prods = S.prods || [];
           S.bills = S.bills || [];
+          S.budgets = S.budgets || {};
           raw();
         }
         const body = JSON.stringify(S);
@@ -1240,7 +1353,7 @@
           await dr("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart", { method: "POST", headers: { "Content-Type": "multipart/related; boundary=" + b }, body: mp });
         }
         setSt("Synced at " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-        if (v == "home" || v == "hist" || v == "bills") go(v);
+        if (v == "home" || v == "hist" || v == "bills" || v == "budget") go(v);
       } catch (e) {
         if (e.message != "expired") {
           setSt("Sync failed. Check connection.");
@@ -1254,7 +1367,7 @@
     });
 
     // --- Navigation Routing ---
-    const V = { home, hist, add, price, rep, prod, bill, bills, edit, settings };
+    const V = { home, hist, add, price, rep, prod, bill, bills, edit, settings, budget };
     const N = [
       ["home", "🏠", "Home"],
       ["hist", "🧾", "History"],
